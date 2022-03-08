@@ -4,7 +4,15 @@ library(MASS)
 library(spBayes)
 library(ggplot2)
 library("gridExtra")
-load("./sim_hoffman2/results/sim1_1.Rdata")
+
+# colorblind-friendly palettes
+cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+
+sim_ind = 1 # simulation index 1 or 2
+
+
+load(paste0("./sim_hoffman2/results/sim", sim_ind, "_1.Rdata"))
 K_fold = 10
 N_list = length(samplesize_ls)
 N_sim = 60
@@ -34,7 +42,7 @@ weights_M_LP_all = array(0, dim = c(length(deltasq_grid) * length(phi_grid) *
 
 
 for(i in 1:N_sim){
-  filename <- paste0("./sim_hoffman2/results/sim1_", i, ".Rdata")
+  filename <- paste0("./sim_hoffman2/results/sim", sim_ind, "_", i, ".Rdata")
   load(filename)
   
   SPE_stack_LP[i, ] = DIV_matrix[, "SPE_stack_LP"]
@@ -59,41 +67,39 @@ for(i in 1:N_sim){
 
 ####
 
-type = c("stacking EP", "stacking LP", "M0", "MCMC")
+type = c("M0", "stacking of means", "stacking of predictive distributions", 
+         "MCMC")
+
+test = c("MSPE", "MSEZ", "MLPD")
 
 
-dat_check <- data.frame(N_sample = rep(rep(paste(samplesize_ls), each = N_sim), 
-                                       length(type)),
-                        SPE = c(c(SPE_stack_LSE), c(SPE_stack_LP), c(SPE_M0),
-                                c(SPE_MCMC)),
-                        SPE_w = c(c(SPE_w_stack_LSE), c(SPE_w_stack_LP), 
-                                  c(SPE_w_M0), c(SPE_w_MCMC)),
-                        ELPD = c(c(ELPD_stack_LSE), c(ELPD_stack_LP), c(ELPD_M0),
-                                 c(ELPD_MCMC)),
-                        label = rep(c(1:4), each = N_list * N_sim))
+dat_check <- data.frame(N_sample = rep(rep(rep(paste(samplesize_ls), 
+                                               each = N_sim), 
+                                       length(type)), length(test)),
+                        value = c(c(c(SPE_M0), c(SPE_stack_LSE), 
+                                    c(SPE_stack_LP), c(SPE_MCMC)),
+                                c(c(SPE_w_M0), c(SPE_w_stack_LSE), 
+                                  c(SPE_w_stack_LP), c(SPE_w_MCMC)),
+                                c(c(ELPD_M0), c(ELPD_stack_LSE), 
+                                 c(ELPD_stack_LP), c(ELPD_MCMC))),
+                        label = rep(rep(c(1:4), each = N_list * N_sim), 
+                                    length(test)),
+                        test = rep(1:3, each = N_list * N_sim * length(type)))
 
 dat_check$label <- factor(dat_check$label, levels = 1:4,
                           labels = type)
 
-p_SPE <- ggplot(dat_check, aes(x = N_sample, y = SPE, color = label)) +
-  geom_violin(draw_quantiles = c(0.5)) +theme_bw() + 
-  xlab("sample size") + ylab("MSPE")
-p_SPE
+dat_check$test <- factor(dat_check$test, levels = 1:3,
+                          labels = test)
 
-p_SPE_w <- ggplot(dat_check, aes(x = N_sample, y = SPE_w, color = label)) +
-  geom_violin(draw_quantiles = c(0.5)) +theme_bw() + xlab("sample size") + ylab("MSEZ")
-p_SPE_w 
-p_ELPD <- ggplot(dat_check, aes(x = N_sample, y = ELPD, color = label)) +
-  geom_violin(draw_quantiles = c(0.5)) +theme_bw() + xlab("sample size") + ylab("MLPD")
-p_ELPD
-
-# ggsave("./sim_hoffman2/pics/p_ELPD_violin.png", plot = p_ELPD, 
-#        width = 6.5, height = 2, units = "in", dpi = 600)
-
-p_summary <- grid.arrange(p_SPE,  p_SPE_w, p_ELPD,
-                          ncol = 1, nrow = 3)
-
-ggsave("./sim_hoffman2/pics/CVexperiment.png", plot = p_summary, 
+p_summary <- ggplot(dat_check, aes(x = N_sample, y = value, color = label)) +
+  geom_violin(draw_quantiles = c(0.5)) +theme_bw() + xlab("sample size") + 
+  facet_wrap(~ test, ncol = 1, scales = "free_y", strip.position="right") +
+  theme(legend.position="top", legend.title = element_blank()) + ylab(" ") +
+  scale_colour_manual(values=c("#999999", "#E69F00", "#56B4E9", "#009E73"))
+  
+ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"), 
+       plot = p_summary, 
        width = 6.5, height = 4.5, units = "in", dpi = 600)
 
 
@@ -111,17 +117,20 @@ weight_data <- data.frame(
 )
 
 weight_data$label <- factor(weight_data$label, levels = 1:2,
-                          labels = c("stacking LSE", "stacking LP"))
+                          labels = c("stacking of means", 
+                                     "stacking of predictive densities"))
 
 p_nonzero_counts <- 
   ggplot(weight_data, aes(x = N_sample, y = nonzero_count, color = label)) +
-  geom_violin(draw_quantiles = c(0.5))  + theme_bw()  +
+  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0, 40)) +
   theme(legend.position = c(0.8, 0.4), legend.title = element_blank()) +
-  xlab("sample size") + ylab("No. of nonzero weights")
+  xlab("sample size") + ylab("No. of nonzero weights") +
+  scale_colour_manual(values=c("#E69F00", "#56B4E9"))
 p_nonzero_counts 
 
 ## Obviously, stacking based on LP has more nonzero weights than stacking based on LSE
-ggsave("./sim_hoffman2/pics/nonzero_check.png", plot = p_nonzero_counts, 
+ggsave(paste0("./sim_hoffman2/pics/nonzero_check_sim", sim_ind, ".png"), 
+       plot = p_nonzero_counts, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
 
@@ -148,7 +157,7 @@ apply(weights_M_LSE_all[which(grid_all$phi == phi_grid[i]), , ], 2:3, sum)
 
 
 ## plot the interpolated map of the latent process ##
-load("./sim_hoffman2/results/sim1_1.Rdata")
+load(paste0("./sim_hoffman2/results/sim", sim_ind, "_10.Rdata"))
 ## check the plots of latent process ##
 library(coda)
 library(spBayes)
@@ -182,6 +191,8 @@ width <- 360
 height <- 360
 pointsize <- 16
 
+png(paste0("./sim_hoffman2/pics/w_all_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
 # setEPS()
 # postscript("./pic/map-w-true.eps")
 par(mfrow = c(2, 3))
@@ -220,6 +231,7 @@ plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y",
 axis(2, las=1)
 axis(1)
 image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
 
 # check predicted w
 surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
@@ -244,6 +256,8 @@ xlim <- c(0, 1.13)
 zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
                 surf.M0[["z"]], surf.MCMC[["z"]]))
 
+png(paste0("./sim_hoffman2/pics/w_pred_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
 par(mfrow = c(2, 3))
 i <- as.image.SpatialGridDataFrame(surf.raw)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
@@ -280,5 +294,5 @@ plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y",
 axis(2, las=1)
 axis(1)
 image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
+dev.off()
 
