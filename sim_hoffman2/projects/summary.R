@@ -9,7 +9,7 @@ library("gridExtra")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 1 # simulation index 1 or 2
+sim_ind = 2 # simulation index 1 or 2
 
 
 load(paste0("./sim_hoffman2/results/sim", sim_ind, "_1.Rdata"))
@@ -105,9 +105,9 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
-sum(weights_nonzero_LSE) / (64 * 8) # 3.6
+sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.3 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 25.24
+sum(weights_nonzero_LP) / (64 * 8) # 25.24; 25.3 in sim2
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -123,7 +123,8 @@ weight_data$label <- factor(weight_data$label, levels = 1:2,
 p_nonzero_counts <- 
   ggplot(weight_data, aes(x = N_sample, y = nonzero_count, color = label)) +
   geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0, 40)) +
-  theme(legend.position = c(0.8, 0.4), legend.title = element_blank()) +
+  theme(legend.position = c(0.8, 0.4), legend.title = element_blank(), 
+        legend.background = element_blank()) +
   xlab("sample size") + ylab("No. of nonzero weights") +
   scale_colour_manual(values=c("#E69F00", "#56B4E9"))
 p_nonzero_counts 
@@ -135,25 +136,124 @@ ggsave(paste0("./sim_hoffman2/pics/nonzero_check_sim", sim_ind, ".png"),
 
 
 ## check the inference of hyper-parameters ##
-expect_w_phi <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
+# check phi #
+expect_w_phi_LSE <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
+expect_w_phi_LP <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
+
 for(i in 1:length(phi_grid)){
-  expect_w_phi[i, ] <- c(apply(weights_M_LP_all[which(grid_all$phi == phi_grid[i]), , ], 2:3, sum))
+  expect_w_phi_LSE[i, ] <- c(apply(
+    weights_M_LSE_all[which(grid_all$phi == phi_grid[i]), , ], 2:3, sum))
+  expect_w_phi_LP[i, ] <- c(apply(
+    weights_M_LP_all[which(grid_all$phi == phi_grid[i]), , ], 2:3, sum))
 }
-summary(c(t(expect_w_phi) %*% phi_grid))
-hist(t(expect_w_phi) %*% phi_grid )
-plot(phi_grid, rowMeans(expect_w_phi))
-
-
-expect_w_phi <- matrix(0, nrow = length(phi_grid), ncol = N_sim)
-for(i in 1:length(phi_grid)){
-  expect_w_phi[i, ] <- c(colSums(weights_M_LP_all[which(grid_all$phi == phi_grid[i]), 2, ]))
+est_phi_LSE <- c(t(expect_w_phi_LSE) %*% phi_grid)
+est_phi_LP <- c(t(expect_w_phi_LP) %*% phi_grid)
+phi_dat <- data.frame(est_phi = c(est_phi_LSE, est_phi_LP), 
+                      N_sample = rep(rep(paste(samplesize_ls), N_sim), 2),
+                      label = rep(1:2, each = N_list * N_sim))
+phi_dat$label <- factor(phi_dat$label, levels = 1:2,
+                        labels = c("stacking of means", 
+                                   "stacking of predictive densities"))
+# adjust the position of the legend for different simulation
+if(sim_ind == 1){
+  leg_pos = c(0.8, 0.85)
+}else if (sim_ind == 2){
+  leg_pos = c(0.5, 0.2)
 }
-summary(c(t(expect_w_phi) %*% phi_grid))
-hist(t(expect_w_phi) %*% phi_grid )
-#plot(phi_grid, rowMeans(expect_w_phi))
+p_est_phi <- 
+  ggplot(phi_dat, aes(x = N_sample, y = est_phi, color = label)) +
+  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0, 24)) +
+  theme(legend.position = leg_pos, legend.title = element_blank(), 
+        legend.background = element_blank()) +
+  xlab("sample size") + ylab(expression("estimated "*phi)) + 
+  scale_colour_manual(values=c("#E69F00", "#56B4E9")) + 
+  geom_hline(yintercept = raw_data[[1]]$phi, linetype="dashed", color = "red")
+p_est_phi
+# the estimation of phi is not reliable
+ggsave(paste0("./sim_hoffman2/pics/est_phi_sim", sim_ind, ".png"), 
+       plot = p_est_phi, 
+       width = 6.5, height = 3, units = "in", dpi = 600)
+
+# check nu #
+expect_w_nu_LSE <- matrix(0, nrow = length(nu_grid), ncol = N_sim * N_list)
+expect_w_nu_LP <- matrix(0, nrow = length(nu_grid), ncol = N_sim * N_list)
+
+for(i in 1:length(nu_grid)){
+  expect_w_nu_LSE[i, ] <- c(apply(
+    weights_M_LSE_all[which(grid_all$nu == nu_grid[i]), , ], 2:3, sum))
+  expect_w_nu_LP[i, ] <- c(apply(
+    weights_M_LP_all[which(grid_all$nu == nu_grid[i]), , ], 2:3, sum))
+}
+est_nu_LSE <- c(t(expect_w_nu_LSE) %*% nu_grid)
+est_nu_LP <- c(t(expect_w_nu_LP) %*% nu_grid)
+nu_dat <- data.frame(est_nu = c(est_nu_LSE, est_nu_LP), 
+                      N_sample = rep(rep(paste(samplesize_ls), N_sim), 2),
+                      label = rep(1:2, each = N_list * N_sim))
+nu_dat$label <- factor(nu_dat$label, levels = 1:2,
+                        labels = c("stacking of means", 
+                                   "stacking of predictive densities"))
+# adjust the position of the legend for different simulation
+if(sim_ind == 1){
+  leg_pos_nu = c(0.8, 0.15)
+}else if (sim_ind == 2){
+  leg_pos_nu = c(0.8, 0.86)
+}
+p_est_nu <- 
+  ggplot(nu_dat, aes(x = N_sample, y = est_nu, color = label)) +
+  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0.2, 2)) +
+  theme(legend.position = leg_pos_nu, legend.title = element_blank(), 
+        legend.background = element_blank()) +
+  xlab("sample size") + ylab(expression("estimated "*nu)) + 
+  scale_colour_manual(values=c("#E69F00", "#56B4E9")) + 
+  geom_hline(yintercept = raw_data[[1]]$nu, linetype="dashed", color = "red")
+p_est_nu
+# the estimation of phi is not reliable
+ggsave(paste0("./sim_hoffman2/pics/est_nu_sim", sim_ind, ".png"), 
+       plot = p_est_nu, 
+       width = 6.5, height = 3, units = "in", dpi = 600)
+
+# check deltasq #
+expect_w_deltasq_LSE <- matrix(0, nrow = length(deltasq_grid), ncol = N_sim * N_list)
+expect_w_deltasq_LP <- matrix(0, nrow = length(deltasq_grid), ncol = N_sim * N_list)
+
+for(i in 1:length(deltasq_grid)){
+  expect_w_deltasq_LSE[i, ] <- c(apply(
+    weights_M_LSE_all[which(grid_all$deltasq == deltasq_grid[i]), , ], 
+    2:3, sum))
+  expect_w_deltasq_LP[i, ] <- c(apply(
+    weights_M_LP_all[which(grid_all$deltasq == deltasq_grid[i]), , ], 
+    2:3, sum))
+}
+est_deltasq_LSE <- c(t(expect_w_deltasq_LSE) %*% deltasq_grid)
+est_deltasq_LP <- c(t(expect_w_deltasq_LP) %*% deltasq_grid)
+deltasq_dat <- data.frame(est_deltasq = c(est_deltasq_LSE, est_deltasq_LP), 
+                     N_sample = rep(rep(paste(samplesize_ls), N_sim), 2),
+                     label = rep(1:2, each = N_list * N_sim))
+deltasq_dat$label <- factor(deltasq_dat$label, levels = 1:2,
+                       labels = c("stacking of means", 
+                                  "stacking of predictive densities"))
+# adjust the position of the legend for different simulation
+if(sim_ind == 1){
+  leg_pos_deltasq = "none"
+}else if (sim_ind == 2){
+  leg_pos_deltasq = c(0.8, 0.8)
+}
+p_est_deltasq <- 
+  ggplot(deltasq_dat, aes(x = N_sample, y = est_deltasq, color = label)) +
+  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0, 2.1)) +
+  theme(legend.position = leg_pos_deltasq, legend.title = element_blank(), 
+        legend.background = element_blank()) +
+  xlab("sample size") + ylab(expression("estimated "*delta^2)) + 
+  scale_colour_manual(values=c("#E69F00", "#56B4E9")) + 
+  geom_hline(yintercept = (raw_data[[1]]$tau.sq / raw_data[[1]]$sigma.sq), 
+                           linetype="dashed", color = "red")
+p_est_deltasq
+# the estimation of phi is not reliable
+ggsave(paste0("./sim_hoffman2/pics/est_deltasq_sim", sim_ind, ".png"), 
+       plot = p_est_deltasq, 
+       width = 6.5, height = 3, units = "in", dpi = 600)
 
 
-apply(weights_M_LSE_all[which(grid_all$phi == phi_grid[i]), , ], 2:3, sum)
 
 
 ## plot the interpolated map of the latent process ##
@@ -206,14 +306,14 @@ image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 
 i1 <- as.image.SpatialGridDataFrame(surf.LSE)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-EP") 
+     xlab="x", main = "stacking of means") 
 axis(2, las=1)
 axis(1)
 image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 
 i2 <- as.image.SpatialGridDataFrame(surf.LP)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LP") 
+     xlab="x", main = "stacking of predictive densities") 
 axis(2, las=1)
 axis(1)
 image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
@@ -269,14 +369,14 @@ image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 
 i1 <- as.image.SpatialGridDataFrame(surf.LSE)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LSE") 
+     xlab="x", main = "stacking of means") 
 axis(2, las=1)
 axis(1)
 image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 
 i2 <- as.image.SpatialGridDataFrame(surf.LP)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LP") 
+     xlab="x", main = "stacking of predictive densities") 
 axis(2, las=1)
 axis(1)
 image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
