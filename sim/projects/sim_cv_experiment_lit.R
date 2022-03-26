@@ -7,7 +7,7 @@ library(cmdstanr)
 library(geoR)
 library(rbenchmark)
 library("gridExtra")
-source("utils2.R")
+source("utils.R")
 #options(mc.cores = parallel::detectCores())
 
 deltasq_grid <- c(0.1, 0.5, 1, 2)
@@ -21,6 +21,9 @@ priors <- list(mu_beta = rep(0, 2),
 
 K_fold = 10
 samplesize_ls  = seq(200, 900, 100)
+samplesize_ls  = seq(200, 400, 100)
+
+
 N_list = length(samplesize_ls)
 
 weights_M_LSE = matrix(0, length(deltasq_grid) * length(phi_grid) * 
@@ -28,8 +31,8 @@ weights_M_LSE = matrix(0, length(deltasq_grid) * length(phi_grid) *
 weights_M_LP = matrix(0, length(deltasq_grid) * length(phi_grid) * 
                         length(nu_grid), N_list)
 raw_data <- list() # record raw data
-stacking_w <- list() # save the weighted latent process 
-stacking_y <- list() # save the weighted prediction 
+expect_w <- list() # save the weighted latent process 
+expect_y <- list() # save the weighted prediction 
 DIV_matrix <- matrix(NA, nrow = N_list, ncol = 12)
 colnames(DIV_matrix) <- c("SPE_stack_LSE", "SPE_stack_LP", "SPE_M0", 
                           "SPE_MCMC", "ELPD_stack_LSE", "ELPD_stack_LP", 
@@ -47,9 +50,9 @@ for(r in 1:N_list){ # repeat
   X <- as.matrix(cbind(1, rnorm(N)))
   beta <- as.matrix(c(1, 2))
   sigma.sq <- 1
-  tau.sq <- 1
-  nu <- 1.0
-  phi <- 7
+  tau.sq <- 0.3 #1
+  nu <- 0.5 # 1.0
+  phi <- 20 # 7
   
   D <- as.matrix(dist(coords))
   R <- matern(D, phi = 1/phi, kappa = nu)
@@ -108,16 +111,12 @@ for(r in 1:N_list){ # repeat
   DIV_matrix[r, "SPE_stack_LSE"] <- mean((y_pred_stack_LSE - y[-ind_mod])^2)
   y_pred_stack_LP = y_pred_grid %*% CV_fit_LP$wts
   DIV_matrix[r, "SPE_stack_LP"] <- mean((y_pred_stack_LP - y[-ind_mod])^2)
-  stacking_y[[r]] <- cbind(y_pred_stack_LSE, y_pred_stack_LP)
-  colnames(stacking_y[[r]]) <- c("LSE", "LP")
-  
   
   w_expect_stack_LSE = w_expect_grid %*% CV_fit_LSE$wts
   DIV_matrix[r, "SPE_w_stack_LSE"] <- mean((w_expect_stack_LSE - w)^2)
   w_expect_stack_LP = w_expect_grid %*% CV_fit_LP$wts
   DIV_matrix[r, "SPE_w_stack_LP"] <- mean((w_expect_stack_LP - w)^2)
-  stacking_w[[r]] <- cbind(w_expect_stack_LSE, w_expect_stack_LP)
-  colnames(stacking_w[[r]]) <- c("LSE", "LP")
+  
   
   ## stacking Expected log pointwise predictive density ##
   lp_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
@@ -174,8 +173,6 @@ for(r in 1:N_list){ # repeat
   priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
                    "phi.Unif"=c(3, 21), "sigma.sq.IG"=c(2, 2),
                    "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
-  # priors.2 <- list("beta.Flat", "phi.Unif"=c(3/1, 3/0.1),
-  #                  "sigma.sq.IG"=c(2, 2), "tau.sq.IG"=c(2, 0.1))
   cov.model <- "matern"
   n.report <- 5000
   verbose <- TRUE
@@ -184,7 +181,7 @@ for(r in 1:N_list){ # repeat
               tuning=tuning, priors=priors.1, cov.model=cov.model,
               n.samples=n.samples, verbose=verbose, n.report=n.report)
 
-    ## recover beta ##
+  ## recover beta ##
   t0 <- proc.time()
   r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
                    n.report =  500)
@@ -196,15 +193,26 @@ for(r in 1:N_list){ # repeat
   ## compute expected response and latent process ##
   MCMC_out <- expects_MCMC(theta.recover = r.1$p.theta.recover.samples,
                            beta.recover = r.1$p.beta.recover.samples,
-                           y.mod = y[ind_mod], X.mod = X[ind_mod, ], coords.mod = coords[ind_mod, ],
-                           X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], coords.ho = coords[-ind_mod, ])
+                           y.mod = y[ind_mod], X.mod = X[ind_mod, ], 
+                           coords.mod = coords[ind_mod, ],
+                           X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], 
+                           coords.ho = coords[-ind_mod, ])
   run_time[6, r] <- MCMC_out$time[3]
   DIV_matrix[r, "SPE_MCMC"] <- mean((MCMC_out$y_expect_MCMC - y[-ind_mod])^2)
   DIV_matrix[r, "SPE_w_MCMC"] <- mean((MCMC_out$w_expect_MCMC - w)^2)
   DIV_matrix[r, "ELPD_MCMC"] <- mean(MCMC_out$lp_expect_MCMC)
   
+  
+  expect_y[[r]] <- cbind(y_pred_stack_LSE, y_pred_stack_LP, pred_M0$y_expect, 
+                         MCMC_out$y_expect_MCMC)
+  colnames(expect_y[[r]]) <- c("LSE", "LP", "M0", "MCMC")
+  expect_w[[r]] <- cbind(w_expect_stack_LSE, w_expect_stack_LP, pred_M0$w_expect,
+                         MCMC_out$w_expect_MCMC)
+  colnames(expect_w[[r]]) <- c("LSE", "LP", "M0", "MCMC")
 }
 summary(DIV_matrix)
+(run_time[4, ] + run_time[5, ])/run_time[1, ]
+(run_time[4, ] + run_time[5, ])/run_time[2, ]
 
 type = c("stacking LSE", "stacking LP", "M0", "MCMC")
 
@@ -241,28 +249,28 @@ save(dat_check, samplesize_ls, weights_M_LSE,
      weights_M_LP, file = "./sim/results/CVexperiment_lit.Rdata")
 #load("./sim/results/CVexperiment_lit.Rdata")
 weight_stack <- 
-  data.frame(weights = c(weights_M), 
+  data.frame(weights = c(weights_M_LSE), 
              model = c(rep(paste0("deltasq:", 
                                   round(CV_fit_LSE$grid_all[, 1], digits = 3), 
                                   " phi: ",
                                   round(CV_fit_LSE$grid_all[, 2], digits = 3)),
-                           n.run)))
+                           N_list)))
 
 p1 <- ggplot(data = weight_stack, aes(x = weights)) + 
   geom_histogram() + facet_wrap(~model)
 p1
 
-summary(colSums(weights_M))
+summary(colSums(weights_M_LSE))
 
-expect_w_phi <- matrix(0, nrow = length(phi_grid), ncol = n.run)
+expect_w_phi <- matrix(0, nrow = length(phi_grid), ncol = N_list)
 for(i in 1:length(phi_grid)){
-  expect_w_phi[i, ] <- colSums(weights_M[which(CV_fit_LSE$grid_all$phi == phi_grid[i]), ])
+  expect_w_phi[i, ] <- colSums(weights_M_LSE[which(CV_fit_LSE$grid_all$phi == phi_grid[i]), ])
 }
 summary(c(t(expect_w_phi) %*%phi_grid))
 hist(t(expect_w_phi) %*%phi_grid )
 plot(phi_grid, rowMeans(expect_w_phi))
 
-expect_w_deltasq <- matrix(0, nrow = length(deltasq_grid), ncol = n.run)
+expect_w_deltasq <- matrix(0, nrow = length(deltasq_grid), ncol = N_list)
 for(i in 1:length(deltasq_grid)){
   expect_w_deltasq[i, ] <- 
     colSums(weights_M[which(CV_fit_LSE$grid_all$deltasq == deltasq_grid[i]),])
@@ -281,9 +289,209 @@ save(dat_check, samplesize_ls, weights_M_LSE,
      weights_M_LP, file = "./sim/results/CVexperiment_lit.Rdata")
 
 
-save(weights_M_LSE, weights_M_LP, raw_data, stacking_w, stacking_y, DIV_matrix,
-     run_time, file = "./sim/results/1.Rdata")
+# save(weights_M_LSE, weights_M_LP, raw_data, expect_w, expect_y, DIV_matrix,
+#      run_time, file = "./sim/results/1.Rdata")
 
+## check the plots of latent process ##
+library(coda)
+library(spBayes)
+library(MBA)
+library(fields)
+library(classInt)
+library(RColorBrewer)
+library(sp)
+
+r = 3
+h <- 12
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$w), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LSE"]), 
+                       no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LP"]), 
+                        no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "M0"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                surf.M0[["z"]], surf.MCMC[["z"]]))
+
+# size for the mapping of w               
+width <- 360
+height <- 360
+pointsize <- 16
+
+# setEPS()
+# postscript("./pic/map-w-true.eps")
+par(mfrow = c(2, 3))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking-LSE") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking-LP") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+# check predicted w
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           raw_data[[r]]$w[-raw_data[[r]]$ind_mod]), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           expect_w[[r]][-raw_data[[r]]$ind_mod, "LSE"]), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ],
+                          expect_w[[r]][-raw_data[[r]]$ind_mod, "LP"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                          expect_w[[r]][-raw_data[[r]]$ind_mod, "M0"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                            expect_w[[r]][-raw_data[[r]]$ind_mod, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                surf.M0[["z"]], surf.MCMC[["z"]]))
+
+par(mfrow = c(2, 3))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking-LSE") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking-LP") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+
+### check the predicted y ##
+#r = 2
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           raw_data[[r]]$y[-raw_data[[r]]$ind_mod]), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           expect_y[[r]][, "LSE"]), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                          expect_y[[r]][, "LP"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                          expect_y[[r]][, "M0"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                            expect_y[[r]][, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                surf.M0[["z"]], surf.MCMC[["z"]]))
+
+# size for the mapping of w               
+width <- 360
+height <- 360
+pointsize <- 16
+
+# setEPS()
+# postscript("./pic/map-w-true.eps")
+par(mfrow = c(2, 3))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking-LSE") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking-LP") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 
 
 
@@ -293,28 +501,32 @@ save(weights_M_LSE, weights_M_LP, raw_data, stacking_w, stacking_y, DIV_matrix,
 # ## predict with MCMC ##
 # #######################
 # 
-# mod <- cmdstan_model(stan_file = "./sim/projects/spatial_fit_2.stan")
+# mod <- cmdstan_model(stan_file = "./sim/projects/spatial_fit.stan")
 # 
 # ### setup ###
 # dat = list(N_mod = (N - N_ho), P = ncol(X), N_ho = N_ho, N = N, X = X,
 #            y = y, coords = coords,
-#            mu_beta = priors$mu_beta, 
+#            mu_beta = priors$mu_beta,
 #            V_beta = chol2inv(chol(priors$inv_V_beta)),
-#            a_sigma = priors$a_sigma, b_sigma = priors$b_sigma, 
-#            a_tau = priors$a_sigma, b_tau = priors$b_sigma, 
+#            a_sigma = priors$a_sigma, b_sigma = priors$b_sigma,
+#            a_tau = priors$a_sigma, b_tau = priors$b_sigma,
 #            a_phi = min(phi_grid), b_phi = max(phi_grid))
 # 
-# init_fun <- function() list(phi = phi, nu = 0.5, tau = sqrt(tau.sq), 
+# init_fun <- function() list(phi = phi, tau = sqrt(tau.sq),
 #                             sigma = sqrt(sigma.sq), beta = beta)
 # 
-# fit_mcmc <- mod$sample(data = dat, 
-#                        seed = 123, 
-#                        chains = 4,
+# fit_mcmc <- mod$sample(data = dat,
+#                        seed = 123,
+#                        chains = 2,
 #                        refresh = 500,
 #                        init = init_fun,
-#                        parallel_chains = 4,
+#                        parallel_chains = 2,
 #                        iter_warmup = 1000,
-#                        iter_sampling = 1000)
+#                        iter_sampling = 100)
+# posterior <- as.array(fit_mcmc$draws())
+# dim(posterior)
+# mcmc_trace(posterior, pars = c("tau", "sigma", "phi"))
+# fit_mcmc
 # 
 # y_pred_MCMC <- fit_mcmc$summary("y_pred", "mean")$mean
 # w_expect_MCMC <- fit_mcmc$summary("w", "mean")$mean
@@ -323,28 +535,28 @@ save(weights_M_LSE, weights_M_LP, raw_data, stacking_w, stacking_y, DIV_matrix,
 # ELPD_MCMC[r] <- mean(fit_mcmc$draws("lp_pred"))
 
 ### fit with spBayes ###
-# n.samples <- 20000
-# starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
-# tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
-# priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
-#                  "phi.Unif"=c(3, 33), "sigma.sq.IG"=c(2, 2),
-#                  "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
-# # priors.2 <- list("beta.Flat", "phi.Unif"=c(3/1, 3/0.1),
-# #                  "sigma.sq.IG"=c(2, 2), "tau.sq.IG"=c(2, 0.1))
-# cov.model <- "matern"
-# n.report <- 5000
-# verbose <- TRUE
-# m.1 <- spLM(y[ind_mod]~X[ind_mod, ]-1, coords=coords[ind_mod, ], 
-#             starting=starting,
-#             tuning=tuning, priors=priors.1, cov.model=cov.model,
-#             n.samples=n.samples, verbose=verbose, n.report=n.report)
-# 
-# 
-# ## check MCMC trace plot ##
-# library(bayesplot)
-# color_scheme_set("blue")
-# mcmc_trace(m.1$p.theta.samples, n_warmup = 0.5*n.samples)
-# 
+n.samples <- 4000
+starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
+tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
+priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
+                 "phi.Unif"=c(3, 33), "sigma.sq.IG"=c(2, 2),
+                 "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
+# priors.2 <- list("beta.Flat", "phi.Unif"=c(3/1, 3/0.1),
+#                  "sigma.sq.IG"=c(2, 2), "tau.sq.IG"=c(2, 0.1))
+cov.model <- "matern"
+n.report <- 5000
+verbose <- TRUE
+m.1 <- spLM(y[ind_mod]~X[ind_mod, ]-1, coords=coords[ind_mod, ],
+            starting=starting,
+            tuning=tuning, priors=priors.1, cov.model=cov.model,
+            n.samples=n.samples, verbose=verbose, n.report=n.report)
+
+
+## check MCMC trace plot ##
+library(bayesplot)
+color_scheme_set("blue")
+mcmc_trace(m.1$p.theta.samples, n_warmup = 0.5*n.samples)
+
 # ## recover beta ##
 # r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
 #                  n.report =  500)

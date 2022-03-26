@@ -596,10 +596,10 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
           # compute expectation of response in fold k
           u <- backsolve(chol_inv_M, u)
           if(p == 0){
-            w_U_expect <- R_k_nk %*% (invR_nk %*% u)
+            w_U_expect <- (R_k_nk %*% invR_nk) %*% u
             y_expect[ind_k_list[[k]], (i1-1)*L_grid_deltasq + i2] <- w_U_expect
           }else{
-            w_U_expect <- R_k_nk %*% (invR_nk %*% u[-(1:p)])
+            w_U_expect <- (R_k_nk %*% invR_nk) %*% u[-(1:p)]
             y_expect[ind_k_list[[k]], (i1-1)*L_grid_deltasq + i2] <-
               X[ind_k_list[[k]], ] %*% u[(1:p)] + w_U_expect
           }
@@ -628,10 +628,10 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
           gamma.sam = backsolve(chol_inv_M, gamma.sam)
 
           if(p == 0){
-            w_U_expect = R_k_nk %*% (invR_nk %*% gamma.sam)
+            w_U_expect = (R_k_nk %*% invR_nk) %*% gamma.sam
             y_U_expect = w_U_expect
           }else{
-            w_U_expect = R_k_nk %*% (invR_nk %*% gamma.sam[-(1:p), ])
+            w_U_expect = (R_k_nk %*% invR_nk) %*% gamma.sam[-(1:p), ]
             y_U_expect = (X[ind_k_list[[k]], ] %*% gamma.sam[(1:p), ] +
                             w_U_expect)
           }
