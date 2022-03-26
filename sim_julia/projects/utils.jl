@@ -89,6 +89,19 @@ function add_to_row!(A::AbstractMatrix,b::AbstractVector)
            return A
        end
 
+function ldiagmul!(Da::AbstractVector, B::AbstractMatrix)
+    # B = diagonal(Da) *B
+    m,n = size(B)
+    @boundscheck m == length(Da) || throw(BoundsError())
+    
+    @inbounds for j in 1:n
+        for i in 1:m
+            B[i, j] *= Da[i]
+        end
+    end
+    return B
+end
+
 function minus_to_row!(A::AbstractMatrix,b::AbstractVector)
            m,n = size(A)
            @boundscheck n == length(b) || throw(BoundsError())
@@ -140,14 +153,14 @@ end
 
 
 function stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid, 
-        L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, nk_list, 
+        L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, nk_list, nk_k_list,
         y, X, XTX, XTy, inv_V_β, inv_V_μ_β)
     
     ## compute expectation of response in fold k ##
     
     # preallocation and precomputation
     L_grid_deltasq = length(deltasq_grid);
-    out_put = Array{Float64, 2}(undef, length(CV_ind_hold_ls[k]), L_grid_deltasq);
+    out_put = Array{Float64, 2}(undef, nk_k_list[k], L_grid_deltasq);
     chol_inv_M = Array{Float64, 2}(undef, nk_list[k] + p, nk_list[k] + p);
     u = Array{Float64, 1}(undef, nk_list[k] + p);
     
