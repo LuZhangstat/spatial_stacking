@@ -287,11 +287,25 @@ function QP_stacking_weight(Y_hat::Matrix, y::Vector)
     m,n = size(Y_hat)
     @boundscheck m == length(y) || throw(BoundsError())
     
-    w = Variable(size(Y_hat, 2));
+    w = Variable(n);
     problem = minimize(sumsquares(y - Y_hat * w)); # objective
     problem.constraints += sum(w) == 1; # constraint
     problem.constraints += w >= 0; # constraint
     solver = () -> Mosek.Optimizer(LOG=0)
+    solve!(problem, solver);
+    return w.value[:]
+end
+
+function stacking_weight(lpd_point::AbstractMatrix)
+    
+    lp_m = mean(lpd_point);
+    lpd_point .-=lp_m; # rescale the log-density for numerical stability
+    exp_lpd_point = exp.(lpd_point);
+    w = Variable(size(lpd_point, 2));
+    problem = maximize(sum(log(exp_lpd_point * w))); # objective
+    problem.constraints += sum(w) == 1; # constraint
+    problem.constraints += w >= 0; # constraint
+    solver = () -> Mosek.Optimizer(LOG=0);
     solve!(problem, solver);
     return w.value[:]
 end
