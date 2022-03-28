@@ -154,7 +154,7 @@ end
 
 function stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid, 
         L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, nk_list, nk_k_list,
-        y, X, XTX, XTy, inv_V_β, inv_V_μ_β)
+        y, X, XTX_list, XTy_list, priors)
     
     ## compute expectation of response in fold k ##
     
@@ -174,15 +174,18 @@ function stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid,
         if p == 0
             chol_inv_M[:] = invR_nk; 
             plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
-            cholesky!(Symmetric(chol_inv_M, :U))
+            cholesky!(Symmetric(chol_inv_M, :U));
             u[:] = y[CV_ind_ls[k]] /  deltasq_pick;
         else
-            chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + inv_V_β;
+            chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + priors["inv_V_β"];
             chol_inv_M[1:p, (p+1):end] = X[:, CV_ind_ls[k]] / deltasq_pick;
             chol_inv_M[(p+1):end, (p+1):end] = invR_nk; 
             plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
-            cholesky!(Symmetric(chol_inv_M, :U))
-            u[:] = [inv_V_μ_β + XTy_list[k] / deltasq_pick; y[CV_ind_ls[k]] /  deltasq_pick];
+            #print("in the inner for loop \n");
+            cholesky!(Symmetric(chol_inv_M, :U));
+            #print("right after inner chol \n");
+            u[:] = [priors["inv_V_μ_β"] + XTy_list[k] / deltasq_pick; 
+                y[CV_ind_ls[k]] /  deltasq_pick];
         end
 
         ldiv!(UpperTriangular(chol_inv_M)', u);  # u2 = chol_inv_M.L \ u;
@@ -202,7 +205,7 @@ end
 
 function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid, 
         L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, nk_list, nk_k_list,
-        y, X, XTX, XTy, inv_V_β, inv_V_μ_β, J = 300)
+        y, X, XTX_list, XTy_list, y_sq_sum_list, priors, J = 300)
     
     ## compute expected log predictive density of response in fold k ##
 
@@ -232,24 +235,24 @@ function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid,
             cholesky!(Symmetric(chol_inv_M, :U));
             u[:] = y[CV_ind_ls[k]] /  deltasq_pick;
         else
-            chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + inv_V_β;
+            chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + priors["inv_V_β"];
             chol_inv_M[1:p, (p+1):end] = X[:, CV_ind_ls[k]] / deltasq_pick;
             chol_inv_M[(p+1):end, (p+1):end] = invR_nk; 
             plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
             cholesky!(Symmetric(chol_inv_M, :U));
-            u[:] = [inv_V_μ_β + XTy_list[k] / deltasq_pick; y[CV_ind_ls[k]] /  deltasq_pick];
+            u[:] = [priors["inv_V_μ_β"] + XTy_list[k] / deltasq_pick; y[CV_ind_ls[k]] /  deltasq_pick];
         end
 
         ldiv!(UpperTriangular(chol_inv_M)', u);  # u2 = chol_inv_M.L \ u;
 
         ## Stacking based on log point-wise predictive density
         if p == 0
-            b_star = bσ + 0.5 * (y_sq_sum_list[k] / deltasq_pick - norm(u)^2);
+            b_star = priors["bσ"] + 0.5 * (y_sq_sum_list[k] / deltasq_pick - norm(u)^2);
         else
-            b_star = bσ + 0.5 * (y_sq_sum_list[k] / deltasq_pick + 
-                dot(μβ, inv_V_μ_β) - norm(u)^2);
+            b_star = priors["bσ"] + 0.5 * (y_sq_sum_list[k] / deltasq_pick + 
+                dot(priors["μβ"], priors["inv_V_μ_β"]) - norm(u)^2);
         end
-        a_star = aσ + nk_list[k] / 2;
+        a_star = priors["aσ"] + nk_list[k] / 2;
 
         ## generate posterior samples ##
         rand!(InverseGamma(a_star, b_star), σ2_sam);
