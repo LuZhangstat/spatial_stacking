@@ -15,6 +15,9 @@ priors <- list(mu_beta = rep(0, length(beta)),
 L = 200
 
 set.seed(1234)
+
+
+
 results <- sp_stacking(X, y, coords, alpha_grid, phi_grid, priors, L,
                        label = "LSE")
 results$wts

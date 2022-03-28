@@ -7,6 +7,7 @@ library(quadprog)   # Quadratic Programming Problems
 # library(matrixStats)
 library(cvTools) #run the above line if you don't have this library
 library(rdist)
+library(CVXR)  # stacking weights computation
 # library(mvtnorm)
 # library(parallel)
 # options(mc.cores = parallel::detectCores() - 2)
@@ -231,73 +232,91 @@ QP_stacking_weight <- function(Y_hat, y){
   return(wts)
 }
 
+stacking_weights <- function(lpd_point){
+  
+  lpd_m = mean(lpd_point)
+  lpd_point = lpd_point - lpd_m ## rescale the log-density for numerical stability
+  exp_lpd_point <- exp(lpd_point)
+  G <- ncol(lpd_point)
+  
+  w <- Variable(G)
+  obj <- sum(log(exp_lpd_point %*% w))
+  constr <- list(sum(w) == 1, w >= 0)
+  prob <- Problem(Maximize(obj), constr)
+  result <- solve(prob)
 
-stacking_weights <-
-  function(lpd_point,
-           optim_method = "BFGS",
-           optim_control = list()){
-    
-    ## Compute stacking weights based on log-pointwise predictive density ##
-    
-    stopifnot(is.matrix(lpd_point))
-    N <- nrow(lpd_point)
-    K <- ncol(lpd_point)
-    if (K < 2) {
-      stop("At least two models are required for stacking weights.")
-    }
-    
-    lpd_m = mean(lpd_point)
-    lpd_point = lpd_point - lpd_m ## rescale the log-density for numerical stability
-    
-    exp_lpd_point <- exp(lpd_point)
-    negative_log_score_loo <- function(w) {
-      # objective function: log score
-      stopifnot(length(w) == K - 1)
-      w_full <- c(w, 1 - sum(w))
-      sum <- 0
-      for (i in 1:N) {
-        sum <- sum + log(exp(lpd_point[i, ]) %*% w_full)
-      }
-      return(-as.numeric(sum))
-    }
-    
-    gradient <- function(w) {
-      # gradient of the objective function
-      stopifnot(length(w) == K - 1)
-      w_full <- c(w, 1 - sum(w))
-      grad <- rep(0, K - 1)
-      for (k in 1:(K - 1)) {
-        for (i in 1:N) {
-          grad[k] <- grad[k] +
-            (exp_lpd_point[i, k] - exp_lpd_point[i, K]) / (exp_lpd_point[i,]  %*% w_full)
-        }
-      }
-      return(-grad)
-    }
-    
-    ui <- rbind(rep(-1, K - 1), diag(K - 1))  # K-1 simplex constraint matrix
-    ci <- c(-1, rep(0, K - 1))
-    w <- constrOptim(
-      theta = rep(1 / K, K - 1),
-      f = negative_log_score_loo,
-      grad = gradient,
-      ui = ui,
-      ci = ci,
-      method = optim_method,
-      control = optim_control
-    )$par
-    
-    wts <- structure(
-      c(w, 1 - sum(w)),
-      names = paste0("model", 1:K),
-      class = c("stacking_weights")
-    )
-    
-    return(wts)
-  }
+  wts <- structure(
+    result$getValue(w)[,1],
+    names = paste0("model", 1:G),
+    class = c("stacking_weights")
+  )
+  
+  return(wts)
+}
 
-
-
+# stacking_weights_old <-
+#   function(lpd_point,
+#            optim_method = "BFGS",
+#            optim_control = list()){
+#     
+#     ## Compute stacking weights based on log-pointwise predictive density ##
+#     
+#     stopifnot(is.matrix(lpd_point))
+#     N <- nrow(lpd_point)
+#     K <- ncol(lpd_point)
+#     if (K < 2) {
+#       stop("At least two models are required for stacking weights.")
+#     }
+#     
+#     lpd_m = mean(lpd_point)
+#     lpd_point = lpd_point - lpd_m ## rescale the log-density for numerical stability
+#     
+#     exp_lpd_point <- exp(lpd_point)
+#     negative_log_score_loo <- function(w) {
+#       # objective function: log score
+#       stopifnot(length(w) == K - 1)
+#       w_full <- c(w, 1 - sum(w))
+#       sum <- 0
+#       for (i in 1:N) {
+#         sum <- sum + log(exp(lpd_point[i, ]) %*% w_full)
+#       }
+#       return(-as.numeric(sum))
+#     }
+#     
+#     gradient <- function(w) {
+#       # gradient of the objective function
+#       stopifnot(length(w) == K - 1)
+#       w_full <- c(w, 1 - sum(w))
+#       grad <- rep(0, K - 1)
+#       for (k in 1:(K - 1)) {
+#         for (i in 1:N) {
+#           grad[k] <- grad[k] +
+#             (exp_lpd_point[i, k] - exp_lpd_point[i, K]) / (exp_lpd_point[i,]  %*% w_full)
+#         }
+#       }
+#       return(-grad)
+#     }
+#     
+#     ui <- rbind(rep(-1, K - 1), diag(K - 1))  # K-1 simplex constraint matrix
+#     ci <- c(-1, rep(0, K - 1))
+#     w <- constrOptim(
+#       theta = rep(1 / K, K - 1),
+#       f = negative_log_score_loo,
+#       grad = gradient,
+#       ui = ui,
+#       ci = ci,
+#       method = optim_method,
+#       control = optim_control
+#     )$par
+#     
+#     wts <- structure(
+#       c(w, 1 - sum(w)),
+#       names = paste0("model", 1:K),
+#       class = c("stacking_weights")
+#     )
+#     
+#     return(wts)
+#   }
 
 Conj_predict <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, 
                          nu_pick, priors, X.ho, coords.ho){
@@ -518,9 +537,6 @@ expects_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
   
 }
 
-
-
-##------------------------------- old code -------------------------------###
 sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
                                priors, K_fold = 10, seed = 1, J = 200,
                                label = "LSE"){
@@ -596,10 +612,10 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
           # compute expectation of response in fold k
           u <- backsolve(chol_inv_M, u)
           if(p == 0){
-            w_U_expect <- (R_k_nk %*% invR_nk) %*% u
+            w_U_expect <- R_k_nk %*% (invR_nk %*% u)
             y_expect[ind_k_list[[k]], (i1-1)*L_grid_deltasq + i2] <- w_U_expect
           }else{
-            w_U_expect <- (R_k_nk %*% invR_nk) %*% u[-(1:p)]
+            w_U_expect <- R_k_nk %*% (invR_nk %*% u[-(1:p)])
             y_expect[ind_k_list[[k]], (i1-1)*L_grid_deltasq + i2] <-
               X[ind_k_list[[k]], ] %*% u[(1:p)] + w_U_expect
           }

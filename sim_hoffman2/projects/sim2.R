@@ -43,6 +43,8 @@ colnames(DIV_matrix) <- c("SPE_stack_LSE", "SPE_stack_LP", "SPE_M0",
                           "SPE_w_stack_LSE", "SPE_w_M0", "SPE_w_MCMC")
 rownames(DIV_matrix) <- paste(samplesize_ls) # check
 run_time <- matrix(0, 6, ncol = N_list)
+MCMC_par <- list() # record the thinned MCMC chains for hyperparameters
+
 
 for(r in 1:N_list){ # repeat
   cat("\n", "samplesize:", samplesize_ls[r], "\t")
@@ -203,6 +205,7 @@ for(r in 1:N_list){ # repeat
                            X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], 
                            coords.ho = coords[-ind_mod, ])
   run_time[6, r] <- MCMC_out$time[3]
+  MCMC_par[[r]] <- r.1$p.theta.recover.samples 
   DIV_matrix[r, "SPE_MCMC"] <- mean((MCMC_out$y_expect_MCMC - y[-ind_mod])^2)
   DIV_matrix[r, "SPE_w_MCMC"] <- mean((MCMC_out$w_expect_MCMC - w)^2)
   DIV_matrix[r, "ELPD_MCMC"] <- mean(MCMC_out$lp_expect_MCMC)
@@ -223,6 +226,6 @@ output_filename <-
   paste0("/u/home/l/luzhangs/project-biostat-chair/stacking/results/sim2_", 
          input_id, ".Rdata")
 save(raw_data, DIV_matrix, run_time, samplesize_ls, weights_M_LSE,
-     weights_M_LP, expect_w, expect_y, file = output_filename)
+     weights_M_LP, expect_w, expect_y, MCMC_par, file = output_filename)
 
 
