@@ -572,3 +572,33 @@ mcmc_trace(m.1$p.theta.samples, n_warmup = 0.5*n.samples)
 #         y.mod = y[ind_mod], X.mod = X[ind_mod, ], coords.mod = coords[ind_mod, ], 
 #         X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], coords.ho = coords[-ind_mod, ])
 
+# test solvers, MOSEK is installed in julia#
+#RMOSEKDIR = "/home/luzhang/.julia/packages/Mosek/au3Cq/deps/src/mosek/9.3/tools/platform/linux64x86/rmosek"
+#source(paste0(RMOSEKDIR, "/builder.R"))
+#attachbuilder(what_mosek_bindir="/home/luzhang/.julia/packages/Mosek/au3Cq/deps/src/mosek/9.3/tools/platform/linux64x86/bin", pos=2L, name="Rmosek:builder", warn.conflicts=TRUE)
+#install.rmosek()
+
+# library(Rmosek)
+# result <- psolve(prob, solver = "ECOS_BB", verbose = TRUE)
+# round(result$getValue(w)[,1], digits = 3)
+# sum(log(exp_lpd_point%*%result$getValue(w)))
+# #[1] 43.18918
+# 
+# results2 <- psolve(prob, solver = "MOSEK", verbose = TRUE)
+# round(results2$getValue(w)[,1], digits = 3)
+# sum(log(exp_lpd_point%*%results2$getValue(w)))
+# #[1] 43.18921  win
+# 
+# results3 <- psolve(prob, solver = "SCS", verbose = TRUE)
+# round(results3$getValue(w)[,1], digits = 3)
+# sum(log(exp_lpd_point%*%results3$getValue(w)))
+# #[1] 42.40507
+# 
+# result_old <- stacking_weights_old(lp_expect)
+# sum(log(exp_lpd_point%*%result_old))
+# #[1] 39.34675
+# sum(log(exp_lpd_point%*%rep(1/64, 64)))
+# 
+# result_test <- stacking_weights(lp_expect)
+# sum(log(exp_lpd_point%*%result_test))
+
