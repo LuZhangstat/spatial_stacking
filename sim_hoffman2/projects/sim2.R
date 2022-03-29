@@ -190,7 +190,7 @@ for(r in 1:N_list){ # repeat
 
     ## recover beta ##
   t0 <- proc.time()
-  r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
+  r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 5,
                    n.report =  500)
   t1 <- proc.time() - t0
 

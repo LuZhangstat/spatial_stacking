@@ -1,197 +1,11 @@
 ## util functions ##
 library(invgamma)
 library(Matrix)
-# library(loo)
-# library(rbenchmark) # test the efficiency
 library(quadprog)   # Quadratic Programming Problems
-# library(matrixStats)
 library(cvTools) #run the above line if you don't have this library
 library(rdist)
 library(CVXR)  # stacking weights computation
-# library(mvtnorm)
-# library(parallel)
-# options(mc.cores = parallel::detectCores() - 2)
-# library(rlist)
-
-# sp_stacking_K_fold_parallel <- 
-#   function(X, y, coords, deltasq_grid, phi_grid, nu_grid, priors, K_fold = 10, 
-#            seed = 1, J = 200, label = "LSE", mc.cores = 4){
-#     
-#     # J: number of samples for computing log point-wise predictive density label LP #
-#     # K: number of folds
-#     
-#     # generate all candidates of the fixed parameter
-#     #deltasq_grid <- sapply(alpha_grid, alpha2deltasq)
-#     t <- proc.time()
-#     grid_all <- expand.grid(deltasq_grid, phi_grid, nu_grid)
-#     colnames(grid_all) <- c("deltasq", "phi", "nu")
-#     rownames(grid_all) <- paste0("model", 1:nrow(grid_all))
-#     grid_phi_nv = expand.grid(phi_grid, nu_grid)
-#     colnames(grid_phi_nv) <- c("phi", "nu")
-#     L_grid_deltasq =length(deltasq_grid)
-#     
-#     # # pre-computation
-#     # D <- as.matrix(dist(coords)) # distance matrix
-#     N = length(y)
-#     if(is.null(X)){
-#       p = 0
-#       inv_V_mu_beta = NULL
-#     }else{
-#       p = ncol(X) # number of predictors, including intercept
-#       inv_V_mu_beta = priors$inv_V_beta %*% priors$mu_beta
-#     }
-#     
-#     ## CV-folds ##
-#     set.seed(seed)
-#     folds <- cvFolds(N, K_fold, type = "random")
-#     # pre-computation and pre-allocation#
-#     ind_k_list <- lapply(1:K_fold, function(x){c(folds$subsets)[(folds$which == x)]})
-#     nk_list <- sapply(ind_k_list, length)
-#     if(p > 0){
-#       XTX_list <- lapply(1:K_fold, function(x){crossprod(X[-ind_k_list[[x]], ])})
-#       XTy_list <- lapply(1:K_fold, function(x){crossprod(X[-ind_k_list[[x]], ], 
-#                                                          y[-ind_k_list[[x]]]) })
-#     }else{
-#       XTX_list <- NULL
-#       XTy_list <- NULL
-#     }
-#     if(label == "LSE"){
-#       y_expect <- matrix(NA, N, nrow(grid_all))
-#       y_sq_sum_list <- NULL
-#     }else if(label == "LP"){
-#       lp_expect <- matrix(NA, N, nrow(grid_all))
-#       y_sq_sum_list <- sapply(1:K_fold, function(x){sum(y[-ind_k_list[[x]]]^2)})
-#     }else{print("label has to be LSE or LP")}
-#     
-#     out <- mclapply(1:nrow(grid_phi_nv), f <- function(x){
-#       parallel_module(i1 = x, grid_phi_nv = grid_phi_nv, K_fold = K_fold, X = X, 
-#                       y = y, coords = coords, priors = priors, N = N, p = p,
-#                       ind_k_list = ind_k_list, L_grid_deltasq = L_grid_deltasq, 
-#                       nk_list = nk_list, 
-#                       XTX_list = XTX_list,
-#                       inv_V_mu_beta = inv_V_mu_beta, 
-#                       XTy_list = XTy_list, 
-#                       y_sq_sum_list = y_sq_sum_list, J = J, label = label)
-#     }, mc.cores = mc.cores)
-#     
-#     i1_list <- sapply(out, f <- function(x){x$i1})
-#     xind <-  rep((i1_list - 1) * L_grid_deltasq, each = L_grid_deltasq) + 
-#       rep(1:L_grid_deltasq, nrow(grid_phi_nv))
-#     if(label == "LSE"){
-#       y_expect[, xind] <- list.cbind(lapply(out, f <- function(x){x$expect}))
-#     }else{
-#       lp_expect[, xind] <- list.cbind(lapply(out, f <- function(x){x$expect}))
-#     }
-#     
-#     ## Compute stacking weights ##
-#     if(label == "LSE"){
-#       wts <- QP_stacking_weight(y_expect, y)
-#       
-#       time <- proc.time()-t
-#       return(list(wts = wts, 
-#                   grid_all = grid_all,
-#                   time = time#, y_expect = y_expect
-#       ))
-#     }else{
-#       time <- proc.time()-t
-#       wts <- stacking_weights(lp_expect)
-#       return(list(wts = wts, 
-#                   grid_all = grid_all,
-#                   time = time#, lp_expect = lp_expect
-#       ))
-#     }
-#   }
-# 
-# 
-# parallel_module <- function(i1, grid_phi_nv, K_fold, X, y, coords, priors, N, p,
-#                             ind_k_list, L_grid_deltasq, nk_list, XTX_list,
-#                             inv_V_mu_beta, XTy_list, y_sq_sum_list, J, label){
-#   
-#   phi_pick <- grid_phi_nv$phi[i1]
-#   nu_pick <- grid_phi_nv$nu[i1]
-#   expect <- matrix(NA, nrow = N, ncol = L_grid_deltasq)
-#   for (k in 1:K_fold){
-#     invR_nk = chol2inv(chol(matern(as.matrix(dist(coords[-ind_k_list[[k]], ])), 
-#                                    phi = 1 / phi_pick, kappa = nu_pick)))
-#     R_k_nk = matern(cdist(coords[ind_k_list[[k]], ], 
-#                           coords[-ind_k_list[[k]], ]), 
-#                     phi = 1 / phi_pick, kappa = nu_pick)
-#     for (i2 in 1:L_grid_deltasq){ # should use parallel computing
-#       deltasq_pick <- deltasq_grid[i2]
-#       # Compute Cholesky decomposition of M_*^{-1}
-#       if(p == 0){
-#         chol_inv_M = chol(invR_nk + diag(rep(1 / deltasq_pick, N - nk_list[k])))
-#         u = y[-ind_k_list[[k]]] / deltasq_pick
-#       }else{
-#         chol_inv_M = chol(
-#           rbind(cbind(XTX_list[[k]] / deltasq_pick + priors$inv_V_beta, 
-#                       t(X[-ind_k_list[[k]], ]) / deltasq_pick),
-#                 cbind(X[-ind_k_list[[k]], ] / deltasq_pick, 
-#                       invR_nk + diag(rep(1 / deltasq_pick, N - nk_list[k])))))
-#         u = c(inv_V_mu_beta + XTy_list[[k]] / deltasq_pick, 
-#               y[-ind_k_list[[k]]] / deltasq_pick)
-#         
-#       }
-#       u <- forwardsolve(chol_inv_M, u, transpose = TRUE, upper.tri = TRUE)
-#       
-#       if (label == "LSE"){
-#         ## Stacking based on expectation
-#         # compute expectation of response in fold k
-#         u <- backsolve(chol_inv_M, u)
-#         if(p == 0){
-#           w_U_expect <- R_k_nk %*% (invR_nk %*% u)
-#           expect[ind_k_list[[k]], i2] <- w_U_expect
-#         }else{
-#           w_U_expect <- R_k_nk %*% (invR_nk %*% u[-(1:p)])
-#           expect[ind_k_list[[k]], i2] <- 
-#             X[ind_k_list[[k]], ] %*% u[(1:p)] + w_U_expect
-#         }
-#       }else{
-#         ## Stacking based on log point-wise predictive density
-#         
-#         if(p == 0){
-#           b_star = priors$b_sigma + 
-#             0.5 * (y_sq_sum_list[k] / deltasq_pick - sum(u^2))
-#         }else{
-#           b_star = priors$b_sigma + 
-#             0.5 * (y_sq_sum_list[k] / deltasq_pick + 
-#                      sum(priors$mu_beta * inv_V_mu_beta) - sum(u^2))
-#         }
-#         
-#         a_star = priors$a_sigma + (N - nk_list[k]) / 2
-#         
-#         ## generate posterior samples ##
-#         sigma.sq.sam =  rinvgamma(J, shape = a_star, rate = b_star) 
-#         # the rate in this function is the scale in wikipedia, mean = b_star/(a_star-1)
-#         
-#         ## compute the expected response on unobserved locations ##
-#         gamma.sam = matrix(rnorm((N - nk_list[k] + p) * J), 
-#                            nrow = N - nk_list[k] + p, ncol = J) %*% 
-#           Diagonal(n = J, sqrt(sigma.sq.sam)) + u
-#         gamma.sam = backsolve(chol_inv_M, gamma.sam)
-#         
-#         if(p == 0){
-#           w_U_expect = R_k_nk %*% (invR_nk %*% gamma.sam)
-#           y_U_expect = w_U_expect
-#         }else{
-#           w_U_expect = R_k_nk %*% (invR_nk %*% gamma.sam[-(1:p), ])
-#           y_U_expect = (X[ind_k_list[[k]], ] %*% gamma.sam[(1:p), ] + 
-#                           w_U_expect)
-#         }
-#         # the matrix of log ratios (lp)
-#         M_r <- y_U_expect - y[ind_k_list[[k]]] 
-#         M_r <- M_r %*% Diagonal(n = J, sqrt(1 / (deltasq_pick * sigma.sq.sam)))
-#         M_r <- -0.5 * (M_r^2 + log(2 * pi) +
-#                          tcrossprod(rep(1, nk_list[k]), 
-#                                     log(deltasq_pick * sigma.sq.sam)))
-#         expect[ind_k_list[[k]], i2] <- log(rowMeans(exp(M_r)))
-#       }
-#     }
-#   }
-#   
-#   return(list(i1 = i1, expect = expect))
-# }
-
+library(Rmosek)
 
 QP_stacking_weight <- function(Y_hat, y){
   
@@ -243,8 +57,8 @@ stacking_weights <- function(lpd_point){
   obj <- sum(log(exp_lpd_point %*% w))
   constr <- list(sum(w) == 1, w >= 0)
   prob <- Problem(Maximize(obj), constr)
-  result <- solve(prob)
-
+  result <- psolve(prob, solver = "MOSEK")
+  
   wts <- structure(
     result$getValue(w)[,1],
     names = paste0("model", 1:G),
@@ -254,69 +68,70 @@ stacking_weights <- function(lpd_point){
   return(wts)
 }
 
-# stacking_weights_old <-
-#   function(lpd_point,
-#            optim_method = "BFGS",
-#            optim_control = list()){
-#     
-#     ## Compute stacking weights based on log-pointwise predictive density ##
-#     
-#     stopifnot(is.matrix(lpd_point))
-#     N <- nrow(lpd_point)
-#     K <- ncol(lpd_point)
-#     if (K < 2) {
-#       stop("At least two models are required for stacking weights.")
-#     }
-#     
-#     lpd_m = mean(lpd_point)
-#     lpd_point = lpd_point - lpd_m ## rescale the log-density for numerical stability
-#     
-#     exp_lpd_point <- exp(lpd_point)
-#     negative_log_score_loo <- function(w) {
-#       # objective function: log score
-#       stopifnot(length(w) == K - 1)
-#       w_full <- c(w, 1 - sum(w))
-#       sum <- 0
-#       for (i in 1:N) {
-#         sum <- sum + log(exp(lpd_point[i, ]) %*% w_full)
-#       }
-#       return(-as.numeric(sum))
-#     }
-#     
-#     gradient <- function(w) {
-#       # gradient of the objective function
-#       stopifnot(length(w) == K - 1)
-#       w_full <- c(w, 1 - sum(w))
-#       grad <- rep(0, K - 1)
-#       for (k in 1:(K - 1)) {
-#         for (i in 1:N) {
-#           grad[k] <- grad[k] +
-#             (exp_lpd_point[i, k] - exp_lpd_point[i, K]) / (exp_lpd_point[i,]  %*% w_full)
-#         }
-#       }
-#       return(-grad)
-#     }
-#     
-#     ui <- rbind(rep(-1, K - 1), diag(K - 1))  # K-1 simplex constraint matrix
-#     ci <- c(-1, rep(0, K - 1))
-#     w <- constrOptim(
-#       theta = rep(1 / K, K - 1),
-#       f = negative_log_score_loo,
-#       grad = gradient,
-#       ui = ui,
-#       ci = ci,
-#       method = optim_method,
-#       control = optim_control
-#     )$par
-#     
-#     wts <- structure(
-#       c(w, 1 - sum(w)),
-#       names = paste0("model", 1:K),
-#       class = c("stacking_weights")
-#     )
-#     
-#     return(wts)
-#   }
+# modified based on https://github.com/stan-dev/loo/blob/e9f93fab6d408d8cb6831b237424e33374c4ca0c/R/loo_model_weights.R#L240
+stacking_weights_old <-
+  function(lpd_point,
+           optim_method = "BFGS",
+           optim_control = list()){
+
+    ## Compute stacking weights based on log-pointwise predictive density ##
+
+    stopifnot(is.matrix(lpd_point))
+    N <- nrow(lpd_point)
+    K <- ncol(lpd_point)
+    if (K < 2) {
+      stop("At least two models are required for stacking weights.")
+    }
+
+    lpd_m = mean(lpd_point)
+    lpd_point = lpd_point - lpd_m ## rescale the log-density for numerical stability
+
+    exp_lpd_point <- exp(lpd_point)
+    negative_log_score_loo <- function(w) {
+      # objective function: log score
+      stopifnot(length(w) == K - 1)
+      w_full <- c(w, 1 - sum(w))
+      sum <- 0
+      for (i in 1:N) {
+        sum <- sum + log(exp(lpd_point[i, ]) %*% w_full)
+      }
+      return(-as.numeric(sum))
+    }
+
+    gradient <- function(w) {
+      # gradient of the objective function
+      stopifnot(length(w) == K - 1)
+      w_full <- c(w, 1 - sum(w))
+      grad <- rep(0, K - 1)
+      for (k in 1:(K - 1)) {
+        for (i in 1:N) {
+          grad[k] <- grad[k] +
+            (exp_lpd_point[i, k] - exp_lpd_point[i, K]) / (exp_lpd_point[i,]  %*% w_full)
+        }
+      }
+      return(-grad)
+    }
+
+    ui <- rbind(rep(-1, K - 1), diag(K - 1))  # K-1 simplex constraint matrix
+    ci <- c(-1, rep(0, K - 1))
+    w <- constrOptim(
+      theta = rep(1 / K, K - 1),
+      f = negative_log_score_loo,
+      grad = gradient,
+      ui = ui,
+      ci = ci,
+      method = optim_method,
+      control = optim_control
+    )$par
+
+    wts <- structure(
+      c(w, 1 - sum(w)),
+      names = paste0("model", 1:K),
+      class = c("stacking_weights")
+    )
+
+    return(wts)
+  }
 
 Conj_predict <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, 
                          nu_pick, priors, X.ho, coords.ho){
@@ -545,7 +360,6 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
   # K: number of folds
 
   # generate all candidates of the fixed parameter
-  #deltasq_grid <- sapply(alpha_grid, alpha2deltasq)
   t <- proc.time()
   grid_all <- expand.grid(deltasq_grid, phi_grid, nu_grid)
   colnames(grid_all) <- c("deltasq", "phi", "nu")
@@ -555,7 +369,6 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
   L_grid_deltasq =length(deltasq_grid)
 
   # # pre-computation
-  # D <- as.matrix(dist(coords)) # distance matrix
   N = length(y)
   if(is.null(X)){p = 0}else{
     p = ncol(X) # number of predictors, including intercept
@@ -671,190 +484,14 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
     time <- proc.time()-t
     return(list(wts = wts,
                 grid_all = grid_all,
-                time = time#, y_expect = y_expect
+                time = time
     ))
   }else{
     time <- proc.time()-t
     wts <- stacking_weights(lp_expect)
     return(list(wts = wts,
                 grid_all = grid_all,
-                time = time#, lp_expect = lp_expect
+                time = time
     ))
   }
 }
-
-# sp_stacking_K_fold_parallel_2 <- 
-#   function(X, y, coords, deltasq_grid, phi_grid, nu_grid, priors, K_fold = 10, 
-#            seed = 1, J = 200, label = "LSE", mc.cores = 4){
-#     
-#     # J: number of samples for computing log point-wise predictive density label LP #
-#     # K: number of folds
-#     
-#     # generate all candidates of the fixed parameter
-#     #deltasq_grid <- sapply(alpha_grid, alpha2deltasq)
-#     t <- proc.time()
-#     grid_all <- expand.grid(deltasq_grid, phi_grid, nu_grid)
-#     colnames(grid_all) <- c("deltasq", "phi", "nu")
-#     rownames(grid_all) <- paste0("model", 1:nrow(grid_all))
-#     grid_phi_nv = expand.grid(phi_grid, nu_grid)
-#     colnames(grid_phi_nv) <- c("phi", "nu")
-#     L_grid_deltasq =length(deltasq_grid)
-#     
-#     # # pre-computation
-#     # D <- as.matrix(dist(coords)) # distance matrix
-#     N = length(y)
-#     if(is.null(X)){
-#       p = 0
-#       inv_V_mu_beta = NULL
-#     }else{
-#       p = ncol(X) # number of predictors, including intercept
-#       inv_V_mu_beta = priors$inv_V_beta %*% priors$mu_beta
-#     }
-#     
-#     ## CV-folds ##
-#     set.seed(seed)
-#     folds <- cvFolds(N, K_fold, type = "random")
-#     # pre-computation and pre-allocation#
-#     ind_k_list <- lapply(1:K_fold, function(x){c(folds$subsets)[(folds$which == x)]})
-#     nk_list <- sapply(ind_k_list, length)
-#     if(p > 0){
-#       XTX_list <- lapply(1:K_fold, function(x){crossprod(X[-ind_k_list[[x]], ])})
-#       XTy_list <- lapply(1:K_fold, function(x){crossprod(X[-ind_k_list[[x]], ], 
-#                                                          y[-ind_k_list[[x]]]) })
-#     }else{
-#       XTX_list <- NULL
-#       XTy_list <- NULL
-#     }
-#     if(label == "LSE"){
-#       y_expect <- matrix(NA, N, nrow(grid_all))
-#       y_sq_sum_list <- NULL
-#     }else if(label == "LP"){
-#       lp_expect <- matrix(NA, N, nrow(grid_all))
-#       y_sq_sum_list <- sapply(1:K_fold, function(x){sum(y[-ind_k_list[[x]]]^2)})
-#     }else{print("label has to be LSE or LP")}
-#     
-#     for (i1 in 1:nrow(grid_phi_nv)){
-#       phi_pick <- grid_phi_nv$phi[i1]
-#       nu_pick <- grid_phi_nv$nu[i1]
-#       for (k in 1:K_fold){
-#         invR_nk = chol2inv(chol(matern(as.matrix(dist(coords[-ind_k_list[[k]], ])),
-#                                        phi = 1 / phi_pick, kappa = nu_pick)))
-#         R_k_nk = matern(cdist(coords[ind_k_list[[k]], ],
-#                               coords[-ind_k_list[[k]], ]),
-#                         phi = 1 / phi_pick, kappa = nu_pick)
-#         
-#         out <- mclapply(1:L_grid_deltasq, f <- function(x){
-#           paralel_deltasq(i2 = x, deltasq_grid = deltasq_grid, R_k_nk = R_k_nk, 
-#                           invR_nk = invR_nk, X = X, y = y, p = p, N = N, k = k,
-#                           nk_list = nk_list, ind_k_list = ind_k_list, 
-#                           XTX_list = XTX_list, priors = priors, 
-#                           inv_V_mu_beta = inv_V_mu_beta, XTy_list = XTy_list, 
-#                           y_sq_sum_list = y_sq_sum_list, J = J, label = label)
-#         }, mc.cores = mc.cores)
-#         
-#         i2_list <- sapply(out, f <- function(x){x$i2})
-#         xind <- (i1 - 1) * L_grid_deltasq + i2_list
-#         if(label == "LSE"){
-#           y_expect[ind_k_list[[k]], xind] <- sapply(out, f <- function(x){x$expect})
-#         }else{
-#           lp_expect[ind_k_list[[k]], xind] <- 
-#             sapply(out, f <- function(x){x$expect})
-#         }
-#       }
-#     }
-#     
-#     ## Compute stacking weights ##
-#     if(label == "LSE"){
-#       wts <- QP_stacking_weight(y_expect, y)
-#       time <- proc.time()-t
-#       return(list(wts = wts,
-#                   grid_all = grid_all,
-#                   time = time#, y_expect = y_expect
-#       ))
-#     }else{
-#       time <- proc.time()-t
-#       wts <- stacking_weights(lp_expect)
-#       return(list(wts = wts,
-#                   grid_all = grid_all,
-#                   time = time#, lp_expect = lp_expect
-#       ))
-#     }
-#   }
-# 
-# 
-# paralel_deltasq <- function(i2, deltasq_grid, R_k_nk, invR_nk, X, y, p, N, k,
-#                             nk_list, ind_k_list, XTX_list, priors, 
-#                             inv_V_mu_beta, XTy_list, y_sq_sum_list, J, label){
-#   deltasq_pick <- deltasq_grid[i2]
-#   # Compute Cholesky decomposition of M_*^{-1}
-#   if(p == 0){
-#     chol_inv_M = chol(invR_nk + diag(rep(1 / deltasq_pick, N - nk_list[k])))
-#     u = y[-ind_k_list[[k]]] / deltasq_pick
-#   }else{
-#     chol_inv_M = chol(
-#       rbind(cbind(XTX_list[[k]] / deltasq_pick + priors$inv_V_beta, 
-#                   t(X[-ind_k_list[[k]], ]) / deltasq_pick),
-#             cbind(X[-ind_k_list[[k]], ] / deltasq_pick, 
-#                   invR_nk + diag(rep(1 / deltasq_pick, N - nk_list[k])))))
-#     u = c(inv_V_mu_beta + XTy_list[[k]] / deltasq_pick, 
-#           y[-ind_k_list[[k]]] / deltasq_pick)
-#     
-#   }
-#   u <- forwardsolve(chol_inv_M, u, transpose = TRUE, upper.tri = TRUE)
-#   
-#   if (label == "LSE"){
-#     ## Stacking based on expectation
-#     # compute expectation of response in fold k
-#     u <- backsolve(chol_inv_M, u)
-#     if(p == 0){
-#       w_U_expect <- R_k_nk %*% (invR_nk %*% u)
-#       expect <- w_U_expect
-#     }else{
-#       w_U_expect <- R_k_nk %*% (invR_nk %*% u[-(1:p)])
-#       expect = X[ind_k_list[[k]], ] %*% u[(1:p)] + w_U_expect
-#     }
-#   }else{
-#     ## Stacking based on log point-wise predictive density
-#     
-#     if(p == 0){
-#       b_star = priors$b_sigma + 
-#         0.5 * (y_sq_sum_list[k] / deltasq_pick - sum(u^2))
-#     }else{
-#       b_star = priors$b_sigma + 
-#         0.5 * (y_sq_sum_list[k] / deltasq_pick + 
-#                  sum(priors$mu_beta * inv_V_mu_beta) - sum(u^2))
-#     }
-#     
-#     a_star = priors$a_sigma + (N - nk_list[k]) / 2
-#     
-#     ## generate posterior samples ##
-#     sigma.sq.sam =  rinvgamma(J, shape = a_star, rate = b_star) 
-#     # the rate in this function is the scale in wikipedia, mean = b_star/(a_star-1)
-#     
-#     ## compute the expected response on unobserved locations ##
-#     gamma.sam = matrix(rnorm((N - nk_list[k] + p) * J), 
-#                        nrow = N - nk_list[k] + p, ncol = J) %*% 
-#       Diagonal(n = J, sqrt(sigma.sq.sam)) + u
-#     gamma.sam = backsolve(chol_inv_M, gamma.sam)
-#     
-#     if(p == 0){
-#       w_U_expect = R_k_nk %*% (invR_nk %*% gamma.sam)
-#       y_U_expect = w_U_expect
-#     }else{
-#       w_U_expect = R_k_nk %*% (invR_nk %*% gamma.sam[-(1:p), ])
-#       y_U_expect = (X[ind_k_list[[k]], ] %*% gamma.sam[(1:p), ] + 
-#                       w_U_expect)
-#     }
-#     # the matrix of log ratios (lp)
-#     M_r <- y_U_expect - y[ind_k_list[[k]]] 
-#     M_r <- M_r %*% Diagonal(n = J, sqrt(1 / (deltasq_pick * sigma.sq.sam)))
-#     M_r <- -0.5 * (M_r^2 + log(2 * pi) +
-#                      tcrossprod(rep(1, nk_list[k]), 
-#                                 log(deltasq_pick * sigma.sq.sam)))
-#     #lp_expect[ind_k_list[[k]], (i1-1)*L_grid_deltasq + i2] <- 
-#     #  log(rowMeans(exp(M_r)))
-#     expect = log(rowMeans(exp(M_r)))
-#   }
-#   return(list(i2 = i2, expect = expect))
-# }
-
