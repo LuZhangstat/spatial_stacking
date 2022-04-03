@@ -6,11 +6,8 @@ library(ggplot2)
 library(geoR)
 library("gridExtra")
 source("/u/home/l/luzhangs/project-biostat-chair/stacking/projects/utils.R")
-#source("./utils.R")
 
 ## read in arguments from command line ##
-# input_id <- as.numeric(commandArgs(trailingOnly = TRUE))
-# cat("id = ", input_id)
 arg <- commandArgs(trailingOnly = FALSE)
 myarg <- arg[length(arg)]
 myarg <- sub("-","",myarg)
@@ -19,7 +16,7 @@ cat("id = ", input_id)
 
 
 deltasq_grid <- c(0.1, 0.5, 1, 2)
-phi_grid = c(3, 9, 15, 21)   #3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) phi_grid = c(3, 13, 23, 33)
+phi_grid = c(3, 9, 15, 21)   #3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
 priors <- list(mu_beta = rep(0, 2),
@@ -46,6 +43,8 @@ colnames(DIV_matrix) <- c("SPE_stack_LSE", "SPE_stack_LP", "SPE_M0",
                           "SPE_w_stack_LSE", "SPE_w_M0", "SPE_w_MCMC")
 rownames(DIV_matrix) <- paste(samplesize_ls) # check
 run_time <- matrix(0, 6, ncol = N_list)
+MCMC_par <- list() # record the thinned MCMC chains for hyperparameters
+
 
 for(r in 1:N_list){ # repeat
   cat("\n", "samplesize:", samplesize_ls[r], "\t")
@@ -206,6 +205,7 @@ for(r in 1:N_list){ # repeat
                            X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], 
                            coords.ho = coords[-ind_mod, ])
   run_time[6, r] <- MCMC_out$time[3]
+  MCMC_par[[r]] <- r.1$p.theta.recover.samples 
   DIV_matrix[r, "SPE_MCMC"] <- mean((MCMC_out$y_expect_MCMC - y[-ind_mod])^2)
   DIV_matrix[r, "SPE_w_MCMC"] <- mean((MCMC_out$w_expect_MCMC - w)^2)
   DIV_matrix[r, "ELPD_MCMC"] <- mean(MCMC_out$lp_expect_MCMC)
@@ -222,11 +222,10 @@ summary(DIV_matrix)
 (run_time[4, ] + run_time[5, ])/run_time[1, ]
 (run_time[4, ] + run_time[5, ])/run_time[2, ]
 
-#output_filename <- paste0("../results/sim1_", input_id, ".Rdata")
 output_filename <- 
   paste0("/u/home/l/luzhangs/project-biostat-chair/stacking/results/sim1_", 
          input_id, ".Rdata")
 save(raw_data, DIV_matrix, run_time, samplesize_ls, weights_M_LSE,
-     weights_M_LP, expect_w, expect_y, file = output_filename)
+     weights_M_LP, expect_w, expect_y, MCMC_par, file = output_filename)
 
 

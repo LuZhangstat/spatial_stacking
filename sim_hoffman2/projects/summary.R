@@ -4,6 +4,7 @@ library(MASS)
 library(spBayes)
 library(ggplot2)
 library("gridExtra")
+library("coda")
 
 # colorblind-friendly palettes
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -40,6 +41,10 @@ weights_M_LSE_all = array(0, dim = c(length(deltasq_grid) * length(phi_grid) *
 weights_M_LP_all = array(0, dim = c(length(deltasq_grid) * length(phi_grid) * 
                                       length(nu_grid), N_list, N_sim))
 
+## check the effective sample size of all MCMC samples
+ESS_MCMC_M <- array(NA, dim = c(N_sim, N_list, 3))
+dimnames(ESS_MCMC_M)[[3]] <- c("phi", "nu", "deltasq")
+
 
 for(i in 1:N_sim){
   filename <- paste0("./sim_hoffman2/results/sim", sim_ind, "_", i, ".Rdata")
@@ -62,6 +67,12 @@ for(i in 1:N_sim){
   weights_M_LSE_all[, , i] <- weights_M_LSE
   weights_M_LP_all[, , i] <- weights_M_LP
   
+  for(j in 1:N_list){
+    ESS_MCMC_M[i, j, "phi"] <- effectiveSize(MCMC_par[[j]][, "phi"]) 
+    ESS_MCMC_M[i, j, "nu"] <- effectiveSize(MCMC_par[[j]][, "nu"])
+    ESS_MCMC_M[i, j, "deltasq"] <- 
+      effectiveSize(MCMC_par[[j]][, "tau.sq"] / MCMC_par[[j]][, "sigma.sq"])
+  }
 }
 
 
@@ -107,7 +118,7 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
 sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.3 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 25.24; 25.3 in sim2
+sum(weights_nonzero_LP) / (64 * 8) # 25.24; 4.8 in sim2
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -122,8 +133,8 @@ weight_data$label <- factor(weight_data$label, levels = 1:2,
 
 p_nonzero_counts <- 
   ggplot(weight_data, aes(x = N_sample, y = nonzero_count, color = label)) +
-  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0, 40)) +
-  theme(legend.position = c(0.8, 0.4), legend.title = element_blank(), 
+  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0, 11)) +
+  theme(legend.position = c(0.45, 0.9), legend.title = element_blank(), 
         legend.background = element_blank()) +
   xlab("sample size") + ylab("No. of nonzero weights") +
   scale_colour_manual(values=c("#E69F00", "#56B4E9"))
@@ -196,7 +207,7 @@ nu_dat$label <- factor(nu_dat$label, levels = 1:2,
 if(sim_ind == 1){
   leg_pos_nu = c(0.8, 0.15)
 }else if (sim_ind == 2){
-  leg_pos_nu = c(0.8, 0.86)
+  leg_pos_nu = c(0.8, 0.88)
 }
 p_est_nu <- 
   ggplot(nu_dat, aes(x = N_sample, y = est_nu, color = label)) +
@@ -251,6 +262,34 @@ p_est_deltasq
 # the estimation of phi is not reliable
 ggsave(paste0("./sim_hoffman2/pics/est_deltasq_sim", sim_ind, ".png"), 
        plot = p_est_deltasq, 
+       width = 6.5, height = 3, units = "in", dpi = 600)
+
+
+## Check the effective sample size of MCMC ##
+ESS_MCMC_dat <- 
+  data.frame(ESS = c(ESS_MCMC_M), 
+             N_sample = rep(rep(paste(samplesize_ls), each = N_sim), 3),
+             label = rep(1:3, each = N_list * N_sim))
+ESS_MCMC_dat$label <- factor(ESS_MCMC_dat$label, levels = 1:3,
+                             labels = dimnames(ESS_MCMC_M)[[3]])
+
+if(sim_ind == 1){
+  leg_pos_ESS = "none"
+}else if (sim_ind == 2){
+  leg_pos_ESS = c(0.8, 0.9)
+}
+p_ESS_MCMC<- 
+  ggplot(ESS_MCMC_dat, aes(x = N_sample, y = ESS, color = label)) +
+  geom_violin(draw_quantiles = c(0.5))  + theme_bw() + #ylim(c(0, 900)) +
+  theme(legend.position = leg_pos_ESS, legend.title = element_blank(), 
+        legend.background = element_blank(),
+        legend.direction="horizontal") + 
+  scale_y_log10(breaks = c(20, 50, seq(0, 600, by = 100), 800, 1000)) +
+  xlab("sample size") + ylab("MCMC ESS") + 
+  scale_colour_manual(values=c("#009E73", "#F0E442", "#0072B2")) 
+p_ESS_MCMC
+ggsave(paste0("./sim_hoffman2/pics/ESS_MCMC_sim", sim_ind, ".png"), 
+       plot = p_ESS_MCMC, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
 
