@@ -10,7 +10,7 @@ library("coda")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 2 # simulation index 1 or 2
+sim_ind = 1 # simulation index 1 or 2
 
 
 load(paste0("./sim_hoffman2/results/sim", sim_ind, "_1.Rdata"))
@@ -109,6 +109,7 @@ p_summary <- ggplot(dat_check, aes(x = N_sample, y = value, color = label)) +
   theme(legend.position="top", legend.title = element_blank()) + ylab(" ") +
   scale_colour_manual(values=c("#999999", "#E69F00", "#56B4E9", "#009E73"))
   
+
 ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"), 
        plot = p_summary, 
        width = 6.5, height = 4.5, units = "in", dpi = 600)
@@ -118,7 +119,7 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
 sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.3 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 25.24; 4.8 in sim2
+sum(weights_nonzero_LP) / (64 * 8) # 4.5; 4.8 in sim2
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
