@@ -257,6 +257,7 @@ Conj_lpd <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pick,
                      tcrossprod(rep(1, N.ho), 
                                 log(deltasq_pick * sigma.sq.sam)))
     
+    #lp_expect <- rowMeans(M_r)
     lp_expect <- log(rowMeans(exp(M_r)))
   }else{ # p = 0
     # compute the mu_star #
@@ -298,6 +299,7 @@ Conj_lpd <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pick,
                      tcrossprod(rep(1, N.ho), 
                                 log(deltasq_pick * sigma.sq.sam)))
     
+    #lp_expect <- rowMeans(M_r)
     lp_expect <- log(rowMeans(exp(M_r)))
   }
   return(lp_expect = lp_expect)
@@ -343,6 +345,7 @@ expects_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
   
   w_expect_MCMC <- rowMeans(w.recover.sample)
   y_expect_MCMC <- rowMeans(y.ho.sample)
+  #lp_expect_MCMC <- rowMeans(lp.ho.recover)
   lp_expect_MCMC <- log(rowMeans(exp(lp.ho.recover)))
   t1 <- proc.time() - t0
   return(list(w_expect_MCMC = w_expect_MCMC,
@@ -471,7 +474,7 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
                            tcrossprod(rep(1, nk_list[k]),
                                       log(deltasq_pick * sigma.sq.sam)))
           lp_expect[ind_k_list[[k]], (i1-1)*L_grid_deltasq + i2] <-
-            log(rowMeans(exp(M_r)))
+            log(rowMeans(exp(M_r))) 
         }
       }
     }

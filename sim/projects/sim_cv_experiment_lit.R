@@ -8,6 +8,7 @@ library(geoR)
 library(rbenchmark)
 library("gridExtra")
 source("utils.R")
+library(INLA)
 #options(mc.cores = parallel::detectCores())
 
 deltasq_grid <- c(0.1, 0.5, 1, 2)
@@ -138,85 +139,86 @@ for(r in 1:N_list){ # repeat
   DIV_matrix[r, "ELPD_stack_LP"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts))
   
   
-  ##################################
-  ## predict with the exact model ##
-  ##################################
-  t0 <- proc.time()
-  pred_M0 <- Conj_predict(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
-                          coords.mod = coords[ind_mod, ],
-                          deltasq_pick = tau.sq / sigma.sq,
-                          phi_pick = phi, nu_pick = nu, priors,
-                          X.ho = X[-ind_mod, ], 
-                          coords.ho = coords[-ind_mod, ])
-  t1 <- proc.time() - t0
-  run_time[3, r] = t1[3]
-  DIV_matrix[r, "SPE_M0"] <- mean((pred_M0$y_expect - y[-ind_mod])^2)
-  DIV_matrix[r, "SPE_w_M0"] <- mean((pred_M0$w_expect - w)^2)
+  # ##################################
+  # ## predict with the exact model ##
+  # ##################################
+  # t0 <- proc.time()
+  # pred_M0 <- Conj_predict(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
+  #                         coords.mod = coords[ind_mod, ],
+  #                         deltasq_pick = tau.sq / sigma.sq,
+  #                         phi_pick = phi, nu_pick = nu, priors,
+  #                         X.ho = X[-ind_mod, ], 
+  #                         coords.ho = coords[-ind_mod, ])
+  # t1 <- proc.time() - t0
+  # run_time[3, r] = t1[3]
+  # DIV_matrix[r, "SPE_M0"] <- mean((pred_M0$y_expect - y[-ind_mod])^2)
+  # DIV_matrix[r, "SPE_w_M0"] <- mean((pred_M0$w_expect - w)^2)
+  # 
+  # ## exact model Expected log pointwise predictive density ##
+  # lp_pred_M0 <- Conj_lpd(X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+  #                        coords.mod = coords[ind_mod, ], 
+  #                        deltasq_pick = tau.sq / sigma.sq,
+  #                        phi_pick = phi, nu_pick = nu,
+  #                        priors, X.ho = X[-ind_mod, ], 
+  #                        y.ho = y[-ind_mod], 
+  #                        coords.ho = coords[-ind_mod, ])
+  # DIV_matrix[r, "ELPD_M0"] <- mean(lp_pred_M0)
+  # 
+  # 
+  # #######################
+  # ## predict with MCMC ##
+  # #######################
+  # 
+  # ### fit with spBayes ###
+  # n.samples <- 20000
+  # starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
+  # tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
+  # priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
+  #                  "phi.Unif"=c(3, 21), "sigma.sq.IG"=c(2, 2),
+  #                  "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
+  # cov.model <- "matern"
+  # n.report <- 5000
+  # verbose <- TRUE
+  # m.1 <- spLM(y[ind_mod]~X[ind_mod, ]-1, coords=coords[ind_mod, ],
+  #             starting=starting,
+  #             tuning=tuning, priors=priors.1, cov.model=cov.model,
+  #             n.samples=n.samples, verbose=verbose, n.report=n.report)
+  # 
+  # ## recover beta ##
+  # t0 <- proc.time()
+  # r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
+  #                  n.report =  500)
+  # t1 <- proc.time() - t0
+  # 
+  # run_time[4, r] <- m.1$run.time[3]
+  # run_time[5, r] <- t1[3]
+  # ## recover latent process on all locations ##
+  # ## compute expected response and latent process ##
+  # MCMC_out <- expects_MCMC(theta.recover = r.1$p.theta.recover.samples,
+  #                          beta.recover = r.1$p.beta.recover.samples,
+  #                          y.mod = y[ind_mod], X.mod = X[ind_mod, ], 
+  #                          coords.mod = coords[ind_mod, ],
+  #                          X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], 
+  #                          coords.ho = coords[-ind_mod, ])
+  # run_time[6, r] <- MCMC_out$time[3]
+  # MCMC_par[[r]] <- r.1$p.theta.recover.samples 
+  # 
+  # DIV_matrix[r, "SPE_MCMC"] <- mean((MCMC_out$y_expect_MCMC - y[-ind_mod])^2)
+  # DIV_matrix[r, "SPE_w_MCMC"] <- mean((MCMC_out$w_expect_MCMC - w)^2)
+  # DIV_matrix[r, "ELPD_MCMC"] <- mean(MCMC_out$lp_expect_MCMC)
   
-  ## exact model Expected log pointwise predictive density ##
-  lp_pred_M0 <- Conj_lpd(X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
-                         coords.mod = coords[ind_mod, ], 
-                         deltasq_pick = tau.sq / sigma.sq,
-                         phi_pick = phi, nu_pick = nu,
-                         priors, X.ho = X[-ind_mod, ], 
-                         y.ho = y[-ind_mod], 
-                         coords.ho = coords[-ind_mod, ])
-  DIV_matrix[r, "ELPD_M0"] <- mean(lp_pred_M0)
-
   
-  #######################
-  ## predict with MCMC ##
-  #######################
-
-  ### fit with spBayes ###
-  n.samples <- 20000
-  starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
-  tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
-  priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
-                   "phi.Unif"=c(3, 21), "sigma.sq.IG"=c(2, 2),
-                   "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
-  cov.model <- "matern"
-  n.report <- 5000
-  verbose <- TRUE
-  m.1 <- spLM(y[ind_mod]~X[ind_mod, ]-1, coords=coords[ind_mod, ],
-              starting=starting,
-              tuning=tuning, priors=priors.1, cov.model=cov.model,
-              n.samples=n.samples, verbose=verbose, n.report=n.report)
-
-  ## recover beta ##
-  t0 <- proc.time()
-  r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
-                   n.report =  500)
-  t1 <- proc.time() - t0
-
-  run_time[4, r] <- m.1$run.time[3]
-  run_time[5, r] <- t1[3]
-  ## recover latent process on all locations ##
-  ## compute expected response and latent process ##
-  MCMC_out <- expects_MCMC(theta.recover = r.1$p.theta.recover.samples,
-                           beta.recover = r.1$p.beta.recover.samples,
-                           y.mod = y[ind_mod], X.mod = X[ind_mod, ], 
-                           coords.mod = coords[ind_mod, ],
-                           X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], 
-                           coords.ho = coords[-ind_mod, ])
-  run_time[6, r] <- MCMC_out$time[3]
-  MCMC_par[[r]] <- r.1$p.theta.recover.samples 
-  
-  DIV_matrix[r, "SPE_MCMC"] <- mean((MCMC_out$y_expect_MCMC - y[-ind_mod])^2)
-  DIV_matrix[r, "SPE_w_MCMC"] <- mean((MCMC_out$w_expect_MCMC - w)^2)
-  DIV_matrix[r, "ELPD_MCMC"] <- mean(MCMC_out$lp_expect_MCMC)
-  
-  
-  expect_y[[r]] <- cbind(y_pred_stack_LSE, y_pred_stack_LP, pred_M0$y_expect, 
-                         MCMC_out$y_expect_MCMC)
-  colnames(expect_y[[r]]) <- c("LSE", "LP", "M0", "MCMC")
-  expect_w[[r]] <- cbind(w_expect_stack_LSE, w_expect_stack_LP, pred_M0$w_expect,
-                         MCMC_out$w_expect_MCMC)
-  colnames(expect_w[[r]]) <- c("LSE", "LP", "M0", "MCMC")
+  # expect_y[[r]] <- cbind(y_pred_stack_LSE, y_pred_stack_LP, pred_M0$y_expect, 
+  #                        MCMC_out$y_expect_MCMC)
+  # colnames(expect_y[[r]]) <- c("LSE", "LP", "M0", "MCMC")
+  # expect_w[[r]] <- cbind(w_expect_stack_LSE, w_expect_stack_LP, pred_M0$w_expect,
+  #                        MCMC_out$w_expect_MCMC)
+  # colnames(expect_w[[r]]) <- c("LSE", "LP", "M0", "MCMC")
 }
 summary(DIV_matrix)
 (run_time[4, ] + run_time[5, ])/run_time[1, ]
 (run_time[4, ] + run_time[5, ])/run_time[2, ]
+#DIV_matrix_new <- DIV_matrix
 
 type = c("stacking LSE", "stacking LP", "M0", "MCMC")
 
