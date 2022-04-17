@@ -227,6 +227,7 @@ function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid,
     R_k_nk = compute_R_k_nk(coords[:, CV_ind_hold_ls[k]], 
         coords[:, CV_ind_ls[k]], ν = nu_pick, ϕ = phi_pick);
     
+    #Random.seed!(seed);
     for i2 in 1:L_grid_deltasq
         deltasq_pick = deltasq_grid[i2];
         if p == 0
@@ -311,4 +312,150 @@ function stacking_weight(lpd_point::AbstractMatrix)
     solver = () -> Mosek.Optimizer(LOG=0);
     solve!(problem, solver);
     return w.value[:]
+end
+
+
+function sp_stacking_K_fold(X, y, coords, deltasq_grid, phi_grid,
+    nu_grid, Priors; K_fold = 10, seed = 123, label = "LSE", J = 300)
+    
+    Random.seed!(seed);
+    # pre-computation and pre-allocation #
+    N = size(X, 2);
+    CV_ind_ls = collect(Kfold(N, K_fold)); # index of train data in CV
+    CV_ind_hold_ls = [setdiff(1:N, CV_ind_ls[k]) for k in 1:K_fold]; # index of held-out data in CV
+    N_grid = length(deltasq_grid) * length(phi_grid) * length(nu_grid);
+    nk_list = [length(x) for x in CV_ind_ls]; # be careful, different from the nk_list in my R code
+    nk_k_list = [(N - x) for x in nk_list];   # This is the nk_list in my R code
+
+
+    if X == Nothing()
+        p = 0;
+    else
+        p = size(X, 1);
+        Priors["inv_V_μ_β"] = Priors["inv_V_β"] * Priors["μβ"];
+        XTX = X * X'; XTy = X * y;
+        XTX_list = [XTX - X[:, CV_ind_hold_ls[k]] * X[:, CV_ind_hold_ls[k]]' for k in 1:K_fold];
+        XTy_list = [XTy - X[:, CV_ind_hold_ls[k]] * y[CV_ind_hold_ls[k]] for k in 1:K_fold];
+    end
+
+    if label == "LSE"
+        y_expect = Array{Float64, 2}(undef, N, N_grid);
+    elseif label == "LP"
+        lp_expect = Array{Float64, 2}(undef, N, N_grid);
+        y_sq_sum_list = [norm(y[CV_ind_ls[k]])^2 for k in 1:K_fold];
+    else 
+        print("label has to be LSE or LP");
+    end
+
+    grid_phi_nu = vcat([[x y] for x in phi_grid, y in nu_grid]...);
+    grid_all = vcat([[x y z] for x in phi_grid, y in nu_grid, z in deltasq_grid]...);
+    L_grid_deltasq  = length(deltasq_grid);
+    
+    ## Compute expectation for stacking ##
+    prog = Progress(size(grid_phi_nu, 1), 1, "Computing initial pass...", 50)
+    for i1 in 1:size(grid_phi_nu, 1)
+        phi_pick = grid_phi_nu[i1, 1];
+        nu_pick = grid_phi_nu[i1, 2];
+        Threads.@threads for k in 1:K_fold
+            Random.seed!(seed + (i1 - 1) * K_fold + k);
+            if label == "LSE"
+                y_expect[CV_ind_hold_ls[k], 
+                    (i1 - 1) * L_grid_deltasq .+ (1:L_grid_deltasq)] = 
+                stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid, 
+                    L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, 
+                    nk_list, nk_k_list, y, X, XTX_list, XTy_list, Priors);
+            else
+                lp_expect[CV_ind_hold_ls[k], 
+                    (i1 - 1) * L_grid_deltasq .+ (1:L_grid_deltasq)] = 
+                stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid, 
+                    L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, 
+                    nk_list, nk_k_list, y, X, XTX_list, XTy_list,
+                    y_sq_sum_list, Priors, J);
+            end     
+        end
+        next!(prog)
+    end
+    
+    # compute stacking weights
+    if label == "LSE"
+        w = QP_stacking_weight(y_expect, y);
+    else
+        w = stacking_weight(lp_expect);
+    end
+    
+    #return grid_all, weights, and label 
+    return Dict(:grid_all => grid_all, :w => w, :label => label)
+end
+
+function sp_stacking_K_fold_MT(X, y, coords, deltasq_grid, phi_grid,
+    nu_grid, Priors; K_fold = 10, seed = 123, label = "LSE", J = 300)
+    ## experimential multithread version of sp_stacking_K_fold
+    
+    Random.seed!(seed);
+    # pre-computation and pre-allocation #
+    N = size(X, 2);
+    CV_ind_ls = collect(Kfold(N, K_fold)); # index of train data in CV
+    CV_ind_hold_ls = [setdiff(1:N, CV_ind_ls[k]) for k in 1:K_fold]; # index of held-out data in CV
+    N_grid = length(deltasq_grid) * length(phi_grid) * length(nu_grid);
+    nk_list = [length(x) for x in CV_ind_ls]; # be careful, different from the nk_list in my R code
+    nk_k_list = [(N - x) for x in nk_list];   # This is the nk_list in my R code
+
+
+    if X == Nothing()
+        p = 0;
+    else
+        p = size(X, 1);
+        Priors["inv_V_μ_β"] = Priors["inv_V_β"] * Priors["μβ"];
+        XTX = X * X'; XTy = X * y;
+        XTX_list = [XTX - X[:, CV_ind_hold_ls[k]] * X[:, CV_ind_hold_ls[k]]' for k in 1:K_fold];
+        XTy_list = [XTy - X[:, CV_ind_hold_ls[k]] * y[CV_ind_hold_ls[k]] for k in 1:K_fold];
+    end
+
+    if label == "LSE"
+        y_expect = Array{Float64, 2}(undef, N, N_grid);
+    elseif label == "LP"
+        lp_expect = Array{Float64, 2}(undef, N, N_grid);
+        y_sq_sum_list = [norm(y[CV_ind_ls[k]])^2 for k in 1:K_fold];
+    else 
+        print("label has to be LSE or LP");
+    end
+
+    grid_phi_nu = vcat([[x y] for x in phi_grid, y in nu_grid]...);
+    grid_all = vcat([[x y z] for x in phi_grid, y in nu_grid, z in deltasq_grid]...);
+    L_grid_deltasq  = length(deltasq_grid);
+    
+    ## Compute expectation for stacking ##
+    #prog = Progress(size(grid_phi_nu, 1), 1, "Computing initial pass...", 50)
+    Threads.@threads for i1 in 1:size(grid_phi_nu, 1)
+        phi_pick = grid_phi_nu[i1, 1];
+        nu_pick = grid_phi_nu[i1, 2];
+        Threads.@threads for k in 1:K_fold
+            Random.seed!(seed + (i1 - 1) * K_fold + k);
+            if label == "LSE"
+                y_expect[CV_ind_hold_ls[k], 
+                    (i1 - 1) * L_grid_deltasq .+ (1:L_grid_deltasq)] = 
+                stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid, 
+                    L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, 
+                    nk_list, nk_k_list, y, X, XTX_list, XTy_list, Priors);
+            else
+                lp_expect[CV_ind_hold_ls[k], 
+                    (i1 - 1) * L_grid_deltasq .+ (1:L_grid_deltasq)] = 
+                stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid, 
+                    L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, 
+                    nk_list, nk_k_list, y, X, XTX_list, XTy_list,
+                    y_sq_sum_list, Priors, J);
+            end     
+        end
+        #next!(prog)
+    end
+    
+    # compute stacking weights
+    if label == "LSE"
+        w = QP_stacking_weight(y_expect, y);
+    else
+        w = stacking_weight(lp_expect);
+    end
+    
+    #return grid_all, weights, and label 
+    return Dict(:grid_all => grid_all, :w => w, :label => label)
 end
