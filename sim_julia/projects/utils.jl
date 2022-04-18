@@ -281,8 +281,7 @@ function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid,
         square_and_plus!(M_r, log(2*pi));
         add_to_column!(M_r, log.(deltasq_pick .* σ2_sam));
         M_r .*= -0.5;
-        out_put[:, i2] = mean(M_r, dims = 1)[1, :];
-        #out_put[:, i2] = log.(mean(exp.(M_r), dims = 1))[1,:];
+        out_put[:, i2] = log.(mean(exp.(M_r), dims = 1))[1,:];
     end          
     return out_put
 end

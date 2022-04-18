@@ -8,12 +8,12 @@ library(geoR)
 library(rbenchmark)
 library("gridExtra")
 source("utils.R")
-library(INLA)
 #options(mc.cores = parallel::detectCores())
 
 deltasq_grid <- c(0.1, 0.5, 1, 2)
 phi_grid = c(3, 9, 15, 21)   #3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) phi_grid = c(3, 13, 23, 33)
 nu_grid = c(0.5, 1, 1.5, 1.75)
+nu_grid = c(0.5)
 
 priors <- list(mu_beta = rep(0, 2),
                inv_V_beta = 1/4 * diag(2),
@@ -87,7 +87,7 @@ for(r in 1:N_list){ # repeat
     X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
     deltasq_grid = deltasq_grid, phi_grid = phi_grid,
     nu_grid = nu_grid, priors = priors, K_fold = K_fold,
-    seed = seed, label = "LP")
+    seed = seed, label = "LP", MC = TRUE)
   weights_M_LP[, r] <- CV_fit_LP$wts
   run_time[2, r] <- CV_fit_LP$time[3]
 
@@ -132,7 +132,7 @@ for(r in 1:N_list){ # repeat
                                     nu_pick = CV_fit_LSE$grid_all$nu[i],
                                     priors, X.ho = X[-ind_mod, ], 
                                     y.ho = y[-ind_mod], 
-                                    coords.ho = coords[-ind_mod, ])
+                                    coords.ho = coords[-ind_mod, ], MC = FALSE)
     }
   }
   DIV_matrix[r, "ELPD_stack_LSE"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LSE$wts))
