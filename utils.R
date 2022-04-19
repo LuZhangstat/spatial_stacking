@@ -301,7 +301,6 @@ Conj_lpd_old <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
                      tcrossprod(rep(1, N.ho), 
                                 log(deltasq_pick * sigma.sq.sam)))
     
-    #lp_expect <- rowMeans(M_r)
     lp_expect <- log(rowMeans(exp(M_r)))
   }
   return(lp_expect = lp_expect)

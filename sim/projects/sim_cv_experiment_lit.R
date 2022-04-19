@@ -87,7 +87,7 @@ for(r in 1:N_list){ # repeat
     X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
     deltasq_grid = deltasq_grid, phi_grid = phi_grid,
     nu_grid = nu_grid, priors = priors, K_fold = K_fold,
-    seed = seed, label = "LP", MC = TRUE)
+    seed = seed, label = "LP", MC = FALSE)
   weights_M_LP[, r] <- CV_fit_LP$wts
   run_time[2, r] <- CV_fit_LP$time[3]
 
