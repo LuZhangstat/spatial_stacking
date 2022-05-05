@@ -126,6 +126,23 @@ function square_and_plus!(A::AbstractMatrix,b::AbstractFloat)
            return A
        end
 
+function row_squaresum_and_plus!(a::AbstractVector, A::AbstractMatrix,b::AbstractFloat)
+           m,n = size(A) 
+           @inbounds for j in 1:n
+               for i in 1:m
+                   if j == 1
+                       a[i] = A[i,j]^2;
+                   else
+                       a[i] += A[i,j]^2;
+                   end
+               end
+           end
+           for i in 1:m
+               a[i] += b;
+           end
+           return a
+       end
+
 function compute_invR_nk(coords; ν=1.0, ϕ = 6.0, σ2 = 1.0)
     ## compute the inverse Matern covariance matrix ##
     M = pairwise(Euclidean(), coords, dims = 2);
@@ -203,11 +220,11 @@ function stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid,
     return out_put
 end
 
-function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid, 
+function stacking_prediction_LP_MC(coords, nu_pick, phi_pick, deltasq_grid, 
         L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, nk_list, nk_k_list,
         y, X, XTX_list, XTy_list, y_sq_sum_list, priors, J = 300)
     
-    ## compute expected log predictive density of response in fold k ##
+    ## compute expected log predictive density of response in fold k, monte carlo version ##
 
     # preallocation and precomputation
     L_grid_deltasq = length(deltasq_grid);
@@ -285,6 +302,120 @@ function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid,
     end          
     return out_put
 end
+
+
+function stacking_prediction_LP(coords, nu_pick, phi_pick, deltasq_grid, 
+        L_grid_deltasq, k, CV_ind_ls, CV_ind_hold_ls, p, nk_list, nk_k_list,
+        y, X, XTX_list, XTy_list, y_sq_sum_list, priors, J = 300, MC = false)
+    
+    ## compute expected log predictive density of response in fold k ##
+
+    # preallocation and precomputation
+    L_grid_deltasq = length(deltasq_grid);
+    out_put = Array{Float64, 2}(undef, nk_k_list[k], L_grid_deltasq);
+    chol_inv_M = Array{Float64, 2}(undef, nk_list[k] + p, nk_list[k] + p);
+    u = Array{Float64, 1}(undef, nk_list[k] + p);
+    a_star = 0.0; b_star = 0.0;
+    if MC == true
+        σ2_sam = Array{Float64, 1}(undef, J);
+        γ_sam = Array{Float64, 2}(undef, J, nk_list[k] + p);
+        M_r = Array{Float64, 2}(undef, J, nk_k_list[k]);
+        if p > 0
+            M_r_Xβ_store = Array{Float64, 2}(undef, J, nk_k_list[k]);
+        end
+        M_r_invRR_store = Array{Float64, 2}(undef, nk_list[k], nk_k_list[k]);
+    else
+        H = Array{Float64, 2}(undef, nk_k_list[k], nk_list[k] + p);
+        y_U_store = Array{Float64, 1}(undef, nk_k_list[k]);
+        Vs_store = Array{Float64, 1}(undef, nk_k_list[k]);
+        one_v = ones(nk_list[k] + p);
+    end
+
+    invR_nk = compute_invR_nk(coords[:, CV_ind_ls[k]], ν = nu_pick, ϕ = phi_pick);
+    R_k_nk = compute_R_k_nk(coords[:, CV_ind_hold_ls[k]], 
+        coords[:, CV_ind_ls[k]], ν = nu_pick, ϕ = phi_pick);
+    
+    #Random.seed!(seed);
+    for i2 in 1:L_grid_deltasq
+        deltasq_pick = deltasq_grid[i2];
+        if p == 0
+            chol_inv_M[:] = invR_nk; 
+            plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
+            cholesky!(Symmetric(chol_inv_M, :U));
+            u[:] = y[CV_ind_ls[k]] /  deltasq_pick;
+        else
+            chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + priors["inv_V_β"];
+            chol_inv_M[1:p, (p+1):end] = X[:, CV_ind_ls[k]] / deltasq_pick;
+            chol_inv_M[(p+1):end, (p+1):end] = invR_nk; 
+            plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
+            cholesky!(Symmetric(chol_inv_M, :U));
+            u[:] = [priors["inv_V_μ_β"] + XTy_list[k] / deltasq_pick; y[CV_ind_ls[k]] /  deltasq_pick];
+        end
+
+        ldiv!(UpperTriangular(chol_inv_M)', u);  # u2 = chol_inv_M.L \ u;              
+              
+        ## Stacking based on log point-wise predictive density
+        if p == 0
+            b_star = priors["bσ"] + 0.5 * (y_sq_sum_list[k] / deltasq_pick - norm(u)^2);
+        else
+            b_star = priors["bσ"] + 0.5 * (y_sq_sum_list[k] / deltasq_pick + 
+                dot(priors["μβ"], priors["inv_V_μ_β"]) - norm(u)^2);
+        end
+        a_star = priors["aσ"] + nk_list[k] / 2;
+        
+        if MC == true
+            ## generate posterior samples ##
+            rand!(InverseGamma(a_star, b_star), σ2_sam);
+
+            ## compute the expected response on unobserved locations ##
+            rand!(Normal(), γ_sam)   # each row is a sample
+            ldiagmul!(sqrt.(σ2_sam), γ_sam);
+            add_to_row!(γ_sam, u);          
+            rdiv!(γ_sam, UpperTriangular(chol_inv_M)');            # γ_sam' = backsolve(chol_inv_M, gamma.sam)
+
+            # M_r the matrix of log ratios (lp), first, store the expected responses on the held out fold
+            if p == 0
+                mul!(M_r_invRR_store, invR_nk, R_k_nk');
+                mul!(M_r, γ_sam, M_r_invRR_store);
+            else
+                mul!(M_r_invRR_store, invR_nk, R_k_nk');
+                mul!(M_r, γ_sam[:, (p+1):end], M_r_invRR_store);
+                mul!(M_r_Xβ_store, γ_sam[:, (1:p)], X[:, CV_ind_hold_ls[k]]);
+                M_r += M_r_Xβ_store;
+            end
+
+            # the matrix of log ratios (lp)
+            minus_to_row!(M_r, y[CV_ind_hold_ls[k]]);
+            ldiagmul!(sqrt.(1 ./ (deltasq_pick .* σ2_sam)), M_r);
+            square_and_plus!(M_r, log(2*pi));
+            add_to_column!(M_r, log.(deltasq_pick .* σ2_sam));
+            M_r .*= -0.5;
+            out_put[:, i2] = log.(mean(exp.(M_r), dims = 1))[1,:];
+        else
+            ldiv!(UpperTriangular(chol_inv_M), u); # compute the posterior expectation of β and z 
+
+            lp_c = -0.5 * log(2 * pi) + loggamma(a_star + 0.5) - 
+              loggamma(a_star) + a_star * log(b_star); # compute the constant related to a_star b_star
+            if p == 0
+                mul!(H, R_k_nk, invR_nk);
+            else
+                H[:, 1:p] = X[:, CV_ind_hold_ls[k]]';
+                H[:, (p+1):end] = R_k_nk * invR_nk;
+            end
+
+            # posterior expectations for observations in fold k 
+            mul!(y_U_store, H, u); 
+            # variance of the marignal posterior predictive distr
+            rdiv!(H, UpperTriangular(chol_inv_M));
+            row_squaresum_and_plus!(Vs_store, H, deltasq_pick);
+            out_put[:, i2] = lp_c .- 0.5 * log.(Vs_store) .- (a_star + 0.5) .* 
+                log.(b_star .+ (y[CV_ind_hold_ls[k]] - y_U_store).^2 ./ (2 * Vs_store));
+        end
+    end          
+    return out_put
+end
+
+
 
 ## compute the stacking weights ##
 function QP_stacking_weight(Y_hat::Matrix, y::Vector)

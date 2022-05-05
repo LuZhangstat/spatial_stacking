@@ -10,7 +10,7 @@ library("coda")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 1 # simulation index 1 or 2
+sim_ind = 2 # simulation index 1 or 2
 
 
 load(paste0("./sim_hoffman2/results/sim", sim_ind, "_1.Rdata"))
