@@ -560,7 +560,7 @@ function sp_stacking_K_fold_MT(X, y, coords, deltasq_grid, phi_grid,
     Threads.@threads for i1 in 1:size(grid_phi_nu, 1)
         phi_pick = grid_phi_nu[i1, 1];
         nu_pick = grid_phi_nu[i1, 2];
-        Threads.@threads for k in 1:K_fold
+        for k in 1:K_fold
             Random.seed!(seed + (i1 - 1) * K_fold + k);
             if label == "LSE"
                 y_expect[CV_ind_hold_ls[k], 
