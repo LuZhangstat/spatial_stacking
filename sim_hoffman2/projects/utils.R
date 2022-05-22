@@ -421,7 +421,8 @@ expects_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
     
     diag(Chol_Cov_w)  =  diag(Chol_Cov_w) + diag_ele
     Chol_Cov_w <- chol(Chol_Cov_w)
-    u = c(y.mod - X.mod %*% beta.recover[ind, ], rep(0, N.ho))
+    u = c((y.mod - X.mod %*% beta.recover[ind, ])/theta.recover[ind, "tau.sq"], 
+          rep(0, N.ho))
     u <- forwardsolve(Chol_Cov_w, u, upper.tri = TRUE, transpose = TRUE)
     v = rnorm(N.all)
     u <- backsolve(Chol_Cov_w, u + v, upper.tri = TRUE, transpose = FALSE)

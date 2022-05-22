@@ -117,9 +117,9 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
-sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.3 in sim2
+sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.4 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 4.5; 4.8 in sim2
+sum(weights_nonzero_LP) / (64 * 8) # 4.1 in sim1; 4.3 in sim2
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
