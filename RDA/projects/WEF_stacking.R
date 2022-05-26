@@ -4,15 +4,15 @@ library(fields)
 library(classInt)
 library(geoR)
 library(spBayes)
+library(rstanarm) # fit Bayesian linear regression
 data("WEF.dat")
-#WEFraw.dat = WEF.dat
 
 ###################################################
 ### WEF data
 ###################################################
-#WEF.dat=read.csv("./RDA/data/WEF_data/WEFsmall.csv")
 
 set.seed(1)
+# simple data cleaning 
 indexNA <- (is.na(WEF.dat$East_m) | is.na(WEF.dat$North_m) | 
               is.na(WEF.dat$DBH_cm) | is.na(WEF.dat$Species) | 
               WEF.dat$Live_dead == "D" | WEF.dat$Species == "NF") 
@@ -21,11 +21,11 @@ WEF.dat <- droplevels(
 
 table(as.numeric(WEF.dat$Species))
 levels(WEF.dat$Species)
-ind=sample(1:nrow(WEF.dat), 500, replace=FALSE)
+ind=sample(1:nrow(WEF.dat), 500, replace=FALSE) # pick 500 observation to check prediction 
 
 ### holdout data to assess RMSPE ###
-WEF.out=WEF.dat[ind,]
-WEF.in=WEF.dat[-ind,]
+WEF.out=WEF.dat[ind,]   # holdout
+WEF.in=WEF.dat[-ind,]   # train 
 rm("WEF.dat")
 
 ### diameter at breast height for the trees
@@ -58,88 +58,52 @@ plot(coords, col=col.pal2[spnum], pch=19, cex=0.5, main="", xlab="Easting (m)", 
 legend("topleft", fill=col.pal2, 
        legend=levels(spnum), bty="n")
 
-
-### Linear regression ###
+### linear regression ###
 lm.DBH <- lm(DBH~Species, data=WEF.in)
 summary(lm.DBH)
 DBH.resid <- resid(lm.DBH)
 
-surf <- mba.surf(cbind(coords,DBH.resid), no.X=100, no.Y=100, h=5, m=2, extend=FALSE)$xyz.est
-#dev.new()
-image.plot(surf, xaxs = "r", yaxs = "r", xlab="Easting (m)", ylab="Northing (m)", col=col.br(25))
+surf <- mba.surf(cbind(coords,DBH.resid), no.X=100, no.Y=100, h=5, m=2, 
+                 extend=FALSE)$xyz.est
+image.plot(surf, xaxs = "r", yaxs = "r", xlab="Easting (m)", 
+           ylab="Northing (m)", col=col.br(25))
 
 
 ### variogram of raw data and residuals ###
 max.dist=0.5*max(rdist(coords))
 bins=20
 
-#dev.new()
 vario.DBH <- variog(coords=coords, data=DBH, uvec=(seq(5, max.dist, length=bins)))
 plot(vario.DBH)
 
-
-#dev.new()
 vario.DBH.resid <- variog(coords=coords, data=DBH.resid, uvec=(seq(0, max.dist, length=bins)))
 plot(vario.DBH.resid)
 
 
-### spatial mle ###
-t <- proc.time()
-mle <- likfit(coords = coords, data = DBH, 
-              trend = trend.spatial(~Species, WEF.in), 
-              ini.cov.pars=c(100,100),
-              nugget = 300, kappa = 0.5, fix.kappa = FALSE,
-              cov.model="matern", nospatial=TRUE)
-proc.time() - t
+#########################
+### Linear regression ###
+#########################
 
-mle
-
-mle$AIC
-mle$BIC
-
-mle$nospatial$AIC
-mle$nospatial$BIC
-
-### RMSPE ###
-krig_mlefit=krige.conv(coords=coords, data=DBH,
-                       locations=WEF.out[,c("East_m","North_m")], 
-                       krige=krige.control(type.krige="OK", obj.model=mle, 
-                                           trend.d=trend.spatial(~Species,WEF.in),
-                                           trend.l=trend.spatial(~Species,WEF.out)))
-
-pred_spatial=krig_mlefit$predict
-rmspe_spatial=sqrt(mean((pred_spatial-WEF.out$DBH_cm)^2))
-
-pred_lm=as.vector(as.matrix(trend.spatial(~Species,WEF.out))%*%lm.DBH$coefficients)
-rmspe_lm=sqrt(mean((pred_lm-WEF.out$DBH_cm)^2))
-
-rmspe_spatial
-rmspe_lm
+model_bayes_lm<- stan_glm(DBH~Species, data=WEF.in, seed=123, 
+                       prior = normal(0, 2.5, autoscale = TRUE),
+                       prior_intercept = normal(50, 2.5, autoscale = TRUE),
+                       prior_aux = exponential(1, autoscale = TRUE),
+                       chains = 4, iter = 2000)
 
 
-### CP ###
-CI_spatial=pred_spatial+1.96*sqrt(krig_mlefit$krige.var)%*%t(c(-1,1))  ## confidence interval ##
-CP_spatial=mean(CI_spatial[,1]<WEF.out$DBH_cm & CI_spatial[,2]>WEF.out$DBH_cm) ## coverage probability ##
-CIW_spatial=mean(CI_spatial[,2]-CI_spatial[,1]) ## confidence interval width ##
-
-CP_spatial
-CIW_spatial
-
-m_r <- pred_spatial - WEF.out$DBH_cm 
-m_r <- m_r / sqrt(krig_mlefit$krige.var) 
-m_r <- -0.5 * (m_r^2 + log(2 * pi) + log(krig_mlefit$krige.var))
-ELPD_mle <- mean(m_r)
-
-N_ho=nrow(WEF.out)
-CI_lm=pred_lm+1.96*summary(lm.DBH)$sigma*cbind(-rep(1,N_ho),rep(1,N_ho))
-CP_lm=mean(CI_lm[,1]<WEF.out$DBH_cm & CI_lm[,2]>WEF.out$DBH_cm)
-CIW_lm=mean(CI_lm[,2]-CI_lm[,1])
-
-CP_lm
-CIW_lm
-
-## stacking ##
+####################
+###   stacking   ###
+####################
 source("utils.R")
+# set the prior of stacking to be close to the Bayesian linear regression
+prior_summary(model_bayes_lm)
+X <- model.matrix(~Species, data = WEF.in) # design matrix 
+p = ncol(X)
+priors <- list(mu_beta = c(50, 0, 0, 0),
+               inv_V_beta = diag(1/c(81, 677.58, 163.85, 185.60)^2),
+               a_sigma = 2,
+               b_sigma = 1000)
+
 # pick candidate values of phi #
 range(1/Matern.cor.to.range(0.6 * max(rdist(coords)), 0.5, cor.target=.05),  # 0.01417578
       1/Matern.cor.to.range(0.1 * max(rdist(coords)), 0.5, cor.target=.05), # 0.08505468
@@ -151,13 +115,6 @@ deltasq_grid <- c(0.1, 0.5, 1, 2)
 phi_grid = seq(0.014, 0.14, length.out = 4)
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
-# precomputation and priors #
-X <- model.matrix(~Species, data = WEF.in) # design matrix 
-p = ncol(X)
-priors <- list(mu_beta = rep(0, p),
-               inv_V_beta = 1/400 * diag(p),
-               a_sigma = 2,
-               b_sigma = 300)
 K_fold = 10
 
 # compute the stacking weights #
@@ -179,13 +136,30 @@ CV_fit_LP <- sp_stacking_K_fold(
 weights_M_LP <- round(CV_fit_LP$wts, digits = 4)
 proc.time() - t #150s
 
-# prediction #
+#############
+### RMSPE ###
+#############
+
+# linear regression #
+pred_lm=as.vector(as.matrix(trend.spatial(~Species,WEF.out))%*%lm.DBH$coefficients)
+rmspe_lm=sqrt(mean((pred_lm-WEF.out$DBH_cm)^2))
+rmspe_lm
+
+# Bayesian linear regression #
+ytilde <- posterior_predict(model_bayes_lm, WEF.out, draws = 1000)
+print(dim(ytilde))
+yhat <- apply(ytilde, 2, mean) # posterior prediction for held out locations
+rmspe_Blm=sqrt(mean((yhat-WEF.out$DBH_cm)^2))
+
+
+# stacking #
 # design matrix and locations of the data for prediction
 X_ho <- model.matrix(~Species, data = WEF.out)
 coords_ho <- as.matrix(WEF.out[,c("East_m","North_m")])
+N_ho = nrow(X_ho)
 ## stacking mean squared prediction error ##
-y_pred_grid <- matrix(0, nrow = nrow(X_ho), ncol = nrow(CV_fit_LSE$grid_all))
-w_expect_grid <- matrix(0, nrow = nrow(X_ho) + nrow(X), 
+y_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
+w_expect_grid <- matrix(0, nrow = N_ho + nrow(X), 
                         ncol = nrow(CV_fit_LSE$grid_all))
 
 t <- proc.time()
@@ -211,8 +185,25 @@ RMSPE_stack_LSE <- sqrt(mean((y_pred_stack_LSE - WEF.out$DBH_cm)^2))
 y_pred_stack_LP = y_pred_grid %*% CV_fit_LP$wts
 RMSPE_stack_LP <- sqrt(mean((y_pred_stack_LP - WEF.out$DBH_cm)^2))
 
+print(round(c(rmspe_lm, rmspe_Blm, RMSPE_stack_LSE, RMSPE_stack_LP), 
+            digits = 2))
+# 22.84 22.86 20.70 20.79
 
-## stacking Expected log pointwise predictive density ##
+############
+### ELPD ###
+############
+
+# Bayesian linear regression #
+draws <- as.matrix(model_bayes_lm, pars = NULL, regex_pars = NULL)
+M_r <- X_ho%*%t(draws[, 1:4])  - WEF.out$DBH_cm
+M_r <- M_r %*% Diagonal(n = nrow(draws), 1 / draws[, 5])
+M_r <- -0.5 * (M_r^2 + log(2 * pi) +
+                 tcrossprod(rep(1, N_ho), 2*log(draws[, 5])))
+lp_expect <- log(rowMeans(exp(M_r)))
+ELPD_Blm <- mean(m_r)
+
+# stacking #
+# stacking Expected log pointwise predictive density 
 lp_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
 for (i in 1:nrow(CV_fit_LSE$grid_all)){
   if((CV_fit_LSE$wts[i] > 0) | (CV_fit_LP$wts[i] > 0)){
@@ -230,7 +221,20 @@ for (i in 1:nrow(CV_fit_LSE$grid_all)){
 ELPD_stack_LSE = mean(log(exp(lp_pred_grid) %*% CV_fit_LSE$wts))
 ELPD_stack_LP = mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts))
 
-## generate posterior samples ##
+print(round(c(ELPD_Blm, ELPD_stack_LSE, ELPD_stack_LP), digits = 2))
+# -4.55 -4.45 -4.44
+
+#######################
+### 95% CI coverage ###
+#######################
+
+# Bayesian linear regression #
+CI_Blm = predictive_interval(model_bayes_lm, newdata = WEF.out, prob = 0.95)
+CP_Blm = mean(CI_Blm[ , 1]<WEF.out$DBH_cm & CI_Blm[, 2]>WEF.out$DBH_cm)
+CIW_Blm = mean(CI_Blm[, 2]-CI_Blm[, 1])
+
+# stacking #
+# generate posterior samples 
 set.seed(123)
 pos_sam_list <- list()
 L = 1000
@@ -238,24 +242,23 @@ for (i in 1:nrow(CV_fit_LSE$grid_all)){
   if((CV_fit_LSE$wts[i] > 0.0001) | (CV_fit_LP$wts[i] > 0.0001)){
     cat(i, "\t")
     pos_sam_list[[i]] <- Conj_pos_sam(X.mod = X, y.mod = WEF.in$DBH_cm,
-                                  coords.mod = coords, 
-                                  deltasq_pick = CV_fit_LSE$grid_all$deltasq[i],
-                                  phi_pick = CV_fit_LSE$grid_all$phi[i], 
-                                  nu_pick = CV_fit_LSE$grid_all$nu[i],
-                                  priors, X.ho = X_ho, 
-                                  y.ho = WEF.out$DBH_cm, 
-                                  coords.ho = coords_ho, L = L)
+                                      coords.mod = coords, 
+                                      deltasq_pick = CV_fit_LSE$grid_all$deltasq[i],
+                                      phi_pick = CV_fit_LSE$grid_all$phi[i], 
+                                      nu_pick = CV_fit_LSE$grid_all$nu[i],
+                                      priors, X.ho = X_ho, 
+                                      y.ho = WEF.out$DBH_cm, 
+                                      coords.ho = coords_ho, L = L)
   }
 }
 
 sample_int_LSE <- sample(1:nrow(CV_fit_LSE$grid_all), L, 
                          replace = TRUE, prob = weights_M_LSE)
 sample_int_LP <- sample(1:nrow(CV_fit_LSE$grid_all), L, 
-                         replace = TRUE, prob = weights_M_LP)
+                        replace = TRUE, prob = weights_M_LP)
 table(sample_int_LSE)
 table(sample_int_LP)
 
-# generate posterior samples 
 y_pred_sam_LSE <- matrix(0, nrow = nrow(X_ho), ncol = L)
 y_pred_sam_LP <- matrix(0, nrow = nrow(X_ho), ncol = L)
 for(l in 1:L){
@@ -264,25 +267,21 @@ for(l in 1:L){
 }
 
 CI_LSE <- apply(y_pred_sam_LSE, 1, 
-      f <- function(x){quantile(x, c(0.025, 0.975))})
-
-CI_LP <- apply(y_pred_sam_LP, 1, 
                 f <- function(x){quantile(x, c(0.025, 0.975))})
-
+CI_LP <- apply(y_pred_sam_LP, 1, 
+               f <- function(x){quantile(x, c(0.025, 0.975))})
 
 
 CP_LSE=mean(CI_LSE[1,]<WEF.out$DBH_cm & CI_LSE[2, ]>WEF.out$DBH_cm)
 CIW_LSE=mean(CI_LSE[2, ]-CI_LSE[1, ])
 
-CP_LSE
-CIW_LSE
-
 CP_LP=mean(CI_LP[1,]<WEF.out$DBH_cm & CI_LP[2, ]>WEF.out$DBH_cm)
 CIW_LP=mean(CI_LP[2, ]-CI_LP[1, ])
 
-CP_LP
-CIW_LP
-
+print(c(CP_Blm, CP_LSE, CP_LP))
+# 0.928 0.934 0.928
+print(c(CIW_Blm, CIW_LSE, CIW_LP))
+# 86.12662 77.91967 75.40654
 
 
 
