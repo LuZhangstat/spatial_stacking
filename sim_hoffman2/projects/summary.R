@@ -78,7 +78,7 @@ for(i in 1:N_sim){
 
 ####
 
-type = c("M0", "stacking of means", "stacking of predictive distributions", 
+type = c("M0", "stacking of means", "stacking of predictive densities", 
          "MCMC")
 
 test = c("MSPE", "MSEZ", "MLPD")
@@ -108,7 +108,7 @@ p_summary <- ggplot(dat_check, aes(x = N_sample, y = value, color = label)) +
   facet_wrap(~ test, ncol = 1, scales = "free_y", strip.position="right") +
   theme(legend.position="top", legend.title = element_blank()) + ylab(" ") +
   scale_colour_manual(values=c("#999999", "#E69F00", "#56B4E9", "#009E73"))
-  
+p_summary  
 
 ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"), 
        plot = p_summary, 
@@ -326,11 +326,8 @@ xlim <- c(0, 1.13)
 zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
                 surf.M0[["z"]], surf.MCMC[["z"]]))
 
-# size for the mapping of w               
-width <- 360
-height <- 360
-pointsize <- 16
 
+## plot the interpolated maps of latent process on all locations ##
 png(paste0("./sim_hoffman2/pics/w_all_sim", sim_ind, ".png"), 
     width = 600, height = 400, units = "px", pointsize = 16)
 # setEPS()
@@ -373,7 +370,68 @@ axis(1)
 image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 dev.off()
 
-# check predicted w
+## generate the pictures one by one ##
+width <- 300
+height <- 300
+pointsize <- 6
+png(paste0("./sim_hoffman2/pics/w_raw_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+par(mfrow = c(1, 1))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "")
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim, 
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_LSE_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_LP_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_M0_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_MCMC_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+
+## plot the interpolated maps of latent process on unobserved locations ##
 surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
                            raw_data[[r]]$w[-raw_data[[r]]$ind_mod]), no.X = 300, 
                      no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
@@ -434,5 +492,63 @@ plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y",
 axis(2, las=1)
 axis(1)
 image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
+
+
+## generate the pictures one by one ##
+png(paste0("./sim_hoffman2/pics/w_pred_raw_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+par(mfrow = c(1, 1))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "")
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim, 
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_pred_LSE_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_pred_LP_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_pred_M0_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim_hoffman2/pics/w_pred_MCMC_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
 dev.off()
 

@@ -86,7 +86,7 @@ plot(vario.DBH.resid)
 
 model_bayes_lm<- stan_glm(DBH~Species, data=WEF.in, seed=123, 
                        prior = normal(0, 2.5, autoscale = TRUE),
-                       prior_intercept = normal(50, 2.5, autoscale = TRUE),
+                       #prior_intercept = normal(50, 2.5, autoscale = TRUE),
                        prior_aux = exponential(1, autoscale = TRUE),
                        chains = 4, iter = 2000)
 
@@ -99,7 +99,7 @@ source("utils.R")
 prior_summary(model_bayes_lm)
 X <- model.matrix(~Species, data = WEF.in) # design matrix 
 p = ncol(X)
-priors <- list(mu_beta = c(50, 0, 0, 0),
+priors <- list(mu_beta = c(37, 0, 0, 0),
                inv_V_beta = diag(1/c(81, 677.58, 163.85, 185.60)^2),
                a_sigma = 2,
                b_sigma = 1000)
@@ -200,7 +200,7 @@ M_r <- M_r %*% Diagonal(n = nrow(draws), 1 / draws[, 5])
 M_r <- -0.5 * (M_r^2 + log(2 * pi) +
                  tcrossprod(rep(1, N_ho), 2*log(draws[, 5])))
 lp_expect <- log(rowMeans(exp(M_r)))
-ELPD_Blm <- mean(m_r)
+ELPD_Blm <- mean(lp_expect)
 
 # stacking #
 # stacking Expected log pointwise predictive density 
@@ -281,7 +281,41 @@ CIW_LP=mean(CI_LP[2, ]-CI_LP[1, ])
 print(c(CP_Blm, CP_LSE, CP_LP))
 # 0.928 0.934 0.928
 print(c(CIW_Blm, CIW_LSE, CIW_LP))
-# 86.12662 77.91967 75.40654
+# 86.14428 77.91968 75.40655
+
+
+library(dplyr)
+library(kableExtra)
+table <- matrix(c(rmspe_Blm, RMSPE_stack_LSE, RMSPE_stack_LP,
+                  ELPD_Blm, ELPD_stack_LSE, ELPD_stack_LP), 
+                nrow = 2, ncol = 3, byrow = TRUE)
+rownames(table) <- c("RMSPE", "MLPD")
+table %>%
+  kbl(caption="Summary Statistics of Western experimental forest inventory data analysis",
+      format="latex",
+      digits = 2, 
+      col.names = c("Bayesian linear regression","stacking of means",
+                    "stacking of predictive densities"),
+      align="c") %>%
+  kable_minimal(full_width = F,  html_font = "Source Sans Pro")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
