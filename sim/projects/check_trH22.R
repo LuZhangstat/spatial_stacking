@@ -117,8 +117,11 @@ p1_1 <- ggplot(data = thm2_cond_d1_dat,
   geom_line(aes(linetype = label, color = type)) +#, position = position_dodge(width=0.3)) + 
   geom_point(aes(shape = label, color = type)) + #, position = position_dodge(width=0.3)) + 
   theme_bw() + facet_grid(cols = vars(group)) +
-  theme(legend.position =  c(0.8, 0.6), legend.title = element_blank(), 
-        legend.background = element_blank()) +
+  theme(legend.position = c(0.8, 0.58), legend.title = element_blank(), 
+        legend.background = element_blank(),
+        legend.text = element_text(size=6),
+        legend.spacing.y = unit(0.1, 'cm'),
+        legend.key.size = unit(0.5, 'cm')) +
   xlab("sample size") + ylab("") + #ylim(0.6, 1) + 
   scale_shape_discrete(
     name  ="",
@@ -305,7 +308,8 @@ thm2_cond_d2_dat$label <- factor(thm2_cond_d2_dat$label, levels = 1:N_psi,
                                             "phi=9.5, nu=1.5, deltasq=1.0"))
 
 thm2_cond_d2_dat$type <- factor(thm2_cond_d2_dat$type, levels = 1:4,
-                                labels = c("U", "B", "C", "D"))
+                                labels = c("tr(U[1:p, 1:p])", "tr(B[1:p, 1:p])", 
+                                           "tr(C)", "tr(D)"))
 
 p2_1 <- ggplot(data = thm2_cond_d2_dat, 
                aes(x = N_sample, y = trUBCD, group = interaction(label, type),
@@ -313,8 +317,11 @@ p2_1 <- ggplot(data = thm2_cond_d2_dat,
   geom_line(aes(linetype = label, color = type)) +#, position = position_dodge(width=0.3)) + 
   geom_point(aes(shape = label, color = type)) + #, position = position_dodge(width=0.3)) + 
   theme_bw() + facet_grid(cols = vars(group)) +
-  theme(legend.position =  c(0.8, 0.6), legend.title = element_blank(), 
-        legend.background = element_blank()) +
+  theme(legend.position = c(0.8, 0.58), legend.title = element_blank(), 
+        legend.background = element_blank(),
+        legend.text = element_text(size=6),
+        legend.spacing.y = unit(0.1, 'cm'),
+        legend.key.size = unit(0.5, 'cm')) +
   xlab("sample size") + ylab("") + #ylim(0.6, 1) + 
   scale_shape_discrete(
     name  ="",
