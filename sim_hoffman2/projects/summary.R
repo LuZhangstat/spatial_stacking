@@ -119,11 +119,8 @@ p_summary <- ggplot(dat_check, aes(x = N_sample, y = value, color = label)) +
   facet_wrap(~ test, ncol = 1, scales = "free_y", strip.position="right") +
   theme(legend.position="top", legend.title = element_blank()) + ylab(" ") +
   scale_colour_manual(values=c("#999999", "#E69F00", "#56B4E9", "#009E73"))
-<<<<<<< HEAD
-p_summary  
-=======
+
 p_summary
->>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
 
 ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"), 
        plot = p_summary, 
@@ -132,17 +129,12 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
-<<<<<<< HEAD
-sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.4 in sim2
-weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 4.1 in sim1; 4.3 in sim2
-=======
+
 sum(weights_nonzero_LSE) / (64 * 8) # 3.57 in sim1; 3.85 in sim2
 # 3.6 in sim1; 3.4 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
 sum(weights_nonzero_LP) / (64 * 8) # 4.31 in sim1; 4.66 in sim2
 # 4.1 in sim1; 4.3 in sim2
->>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -575,8 +567,6 @@ image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-<<<<<<< HEAD
-=======
 
 ############################### testing ########################################
 ## plot the interpolated maps of the w +x beta on unobserved locations ##
@@ -799,5 +789,3 @@ axis(1)
 image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
 dev.off()
 
-
->>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
