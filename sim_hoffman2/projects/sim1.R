@@ -16,7 +16,7 @@ cat("id = ", input_id)
 
 
 deltasq_grid <- c(0.1, 0.5, 1, 2)
-phi_grid = c(3, 9, 15, 21)   #3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) 
+phi_grid = c(3, 14, 25, 36)   
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
 priors <- list(mu_beta = rep(0, 2),
@@ -176,7 +176,7 @@ for(r in 1:N_list){ # repeat
   starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
   tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
   priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
-                   "phi.Unif"=c(3, 21), "sigma.sq.IG"=c(2, 2),
+                   "phi.Unif"=c(3, 36), "sigma.sq.IG"=c(2, 2),
                    "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
   # priors.2 <- list("beta.Flat", "phi.Unif"=c(3/1, 3/0.1),
   #                  "sigma.sq.IG"=c(2, 2), "tau.sq.IG"=c(2, 0.1))

@@ -195,8 +195,8 @@ Conj_predict <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick,
 
 
 Conj_lpd_old <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pick,
-                     priors, X.ho, y.ho, coords.ho, L = 300, seed = 123,
-                     MC = TRUE){
+                         priors, X.ho, y.ho, coords.ho, L = 300, seed = 123,
+                         MC = TRUE){
   
   set.seed(seed)
   chol_nk = chol(matern(as.matrix(dist(coords.mod)), phi = 1/phi_pick,
@@ -304,6 +304,107 @@ Conj_lpd_old <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
     lp_expect <- log(rowMeans(exp(M_r)))
   }
   return(lp_expect = lp_expect)
+}
+
+Conj_pos_sam <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pick,
+                         priors, X.ho, y.ho, coords.ho, L = 300, seed = 123,
+                         MC = TRUE){
+  
+  set.seed(seed)
+  chol_nk = chol(matern(as.matrix(dist(coords.mod)), phi = 1/phi_pick,
+                        kappa = nu_pick))
+  #chol_nk = chol(exp(- phi_pick * as.matrix(dist(coords.mod))))
+  N.mod = nrow(coords.mod)
+  N.ho = nrow(coords.ho)
+  lp_expect <- c()
+  if(!is.null(X.mod)){
+    p = ncol(X.mod)
+    # compute the mu_star #
+    chol_inv_V = chol(rbind(cbind(crossprod(X.mod) / deltasq_pick + 
+                                    priors$inv_V_beta, 
+                                  t(X.mod) / deltasq_pick),
+                            cbind(X.mod / deltasq_pick, 
+                                  chol2inv(chol_nk) +
+                                    diag(rep(1 / deltasq_pick, N.mod)))))
+    
+    inv_V_mu_beta = priors$inv_V_beta %*% priors$mu_beta
+    
+    mu_star = c(inv_V_mu_beta + crossprod(X.mod, y.mod) / 
+                  deltasq_pick, y.mod / deltasq_pick)
+    
+    mu_star = forwardsolve(chol_inv_V, mu_star, transpose = TRUE, 
+                           upper.tri = TRUE)
+    
+    #mu_star = backsolve(chol_inv_V, mu_star)
+    
+    
+    b_star = priors$b_sigma + 0.5 * (sum(y.mod^2) / deltasq_pick + 
+                                       sum(priors$mu_beta * inv_V_mu_beta) - 
+                                       sum(mu_star^2))
+    
+    a_star = priors$a_sigma + N.mod / 2
+    
+    
+    ## generate posterior samples ##
+    sigma.sq.sam =  rinvgamma(L, shape = a_star, rate = b_star) 
+    # the rate in this function is the scale in wikipedia, mean = b_star/(a_star-1)
+    gamma.sam = matrix(rnorm((N.mod + p) * L), nrow = N.mod + p, ncol = L) %*% 
+      Diagonal(n = L, sqrt(sigma.sq.sam)) + mu_star
+    gamma.sam = backsolve(chol_inv_V, gamma.sam)
+    
+    
+    ## compute the expected w on unobserved locations ##
+    C_k_nk = matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
+                    kappa = nu_pick)
+    
+    w_U_expect =  forwardsolve(chol_nk, gamma.sam[-(1:p), ], transpose = TRUE, 
+                               upper.tri = TRUE)
+    
+    w_U_expect =  backsolve(chol_nk, w_U_expect)
+    w_U_expect = (C_k_nk %*% w_U_expect)
+    y_U_expect = (X.ho %*% gamma.sam[(1:p), ] + w_U_expect) + 
+      matrix(rnorm(N.ho * L), nrow = N.ho, ncol = L) %*% 
+      diag(sqrt(sigma.sq.sam * deltasq_pick))
+    
+  }else{ # p = 0
+    # compute the mu_star #
+    chol_inv_V = chol(chol2inv(chol_nk) + diag(rep(1 / deltasq_pick, N.mod)))
+    
+    mu_star = c(y.mod / deltasq_pick)
+    
+    mu_star = forwardsolve(chol_inv_V, mu_star, transpose = TRUE, 
+                           upper.tri = TRUE)
+    
+    b_star = priors$b_sigma + 0.5 * (sum(y.mod^2) / deltasq_pick -
+                                       sum(mu_star^2))
+    
+    a_star = priors$a_sigma + (N.mod) / 2
+    
+    
+    ## generate posterior samples ##
+    sigma.sq.sam =  rinvgamma(L, shape = a_star, rate = b_star) 
+    # the rate in this function is the scale in wikipedia, mean = b_star/(a_star-1)
+    gamma.sam = matrix(rnorm(N.mod * L), nrow = N.mod, ncol = L) %*% 
+      Diagonal(n = L, sqrt(sigma.sq.sam)) + mu_star
+    gamma.sam = backsolve(chol_inv_V, gamma.sam)
+    
+    
+    ## compute the expected w on unobserved locations ##
+    C_k_nk = matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
+                    kappa = nu_pick)
+    
+    w_U_expect =  forwardsolve(chol_nk, gamma.sam, transpose = TRUE, 
+                               upper.tri = TRUE)
+    w_U_expect =  backsolve(chol_nk, w_U_expect)
+    w_U_expect = (C_k_nk %*% w_U_expect)
+    y_U_expect = w_U_expect + 
+      matrix(rnorm(N.ho * L), nrow = N.ho, ncol = L) %*% 
+      diag(sqrt(sigma.sq.sam * deltasq_pick))
+  }
+  return(list(sigma.sq.sam = sigma.sq.sam,
+              gamma.sam = gamma.sam,
+              w_U_expect = w_U_expect,
+              y_U_expect = y_U_expect))
 }
 
 
@@ -421,7 +522,8 @@ expects_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
     
     diag(Chol_Cov_w)  =  diag(Chol_Cov_w) + diag_ele
     Chol_Cov_w <- chol(Chol_Cov_w)
-    u = c(y.mod - X.mod %*% beta.recover[ind, ], rep(0, N.ho))
+    u = c((y.mod - X.mod %*% beta.recover[ind, ])/theta.recover[ind, "tau.sq"], 
+          rep(0, N.ho))
     u <- forwardsolve(Chol_Cov_w, u, upper.tri = TRUE, transpose = TRUE)
     v = rnorm(N.all)
     u <- backsolve(Chol_Cov_w, u + v, upper.tri = TRUE, transpose = FALSE)

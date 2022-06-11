@@ -10,10 +10,15 @@ library("gridExtra")
 source("utils.R")
 #options(mc.cores = parallel::detectCores())
 
+# decide the bound of the candidate values for phi
+range(c(1 / Matern.cor.to.range(0.6 * sqrt(2), 0.5, cor.target=.05),
+  1 / Matern.cor.to.range(0.1 * sqrt(2), 0.5, cor.target=.05),
+  1 / Matern.cor.to.range(0.6 * sqrt(2), 1.75, cor.target=.05),
+  1 / Matern.cor.to.range(0.1 * sqrt(2), 1.75, cor.target=.05)))
+
 deltasq_grid <- c(0.1, 0.5, 1, 2)
-phi_grid = c(3, 9, 15, 21)   #3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) phi_grid = c(3, 13, 23, 33)
+phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
-nu_grid = c(0.5)
 
 priors <- list(mu_beta = rep(0, 2),
                inv_V_beta = 1/4 * diag(2),
@@ -139,32 +144,32 @@ for(r in 1:N_list){ # repeat
   DIV_matrix[r, "ELPD_stack_LP"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts))
   
   
-  # ##################################
-  # ## predict with the exact model ##
-  # ##################################
-  # t0 <- proc.time()
-  # pred_M0 <- Conj_predict(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
-  #                         coords.mod = coords[ind_mod, ],
-  #                         deltasq_pick = tau.sq / sigma.sq,
-  #                         phi_pick = phi, nu_pick = nu, priors,
-  #                         X.ho = X[-ind_mod, ], 
-  #                         coords.ho = coords[-ind_mod, ])
-  # t1 <- proc.time() - t0
-  # run_time[3, r] = t1[3]
-  # DIV_matrix[r, "SPE_M0"] <- mean((pred_M0$y_expect - y[-ind_mod])^2)
-  # DIV_matrix[r, "SPE_w_M0"] <- mean((pred_M0$w_expect - w)^2)
-  # 
-  # ## exact model Expected log pointwise predictive density ##
-  # lp_pred_M0 <- Conj_lpd(X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
-  #                        coords.mod = coords[ind_mod, ], 
-  #                        deltasq_pick = tau.sq / sigma.sq,
-  #                        phi_pick = phi, nu_pick = nu,
-  #                        priors, X.ho = X[-ind_mod, ], 
-  #                        y.ho = y[-ind_mod], 
-  #                        coords.ho = coords[-ind_mod, ])
-  # DIV_matrix[r, "ELPD_M0"] <- mean(lp_pred_M0)
-  # 
-  # 
+  ##################################
+  ## predict with the exact model ##
+  ##################################
+  t0 <- proc.time()
+  pred_M0 <- Conj_predict(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
+                          coords.mod = coords[ind_mod, ],
+                          deltasq_pick = tau.sq / sigma.sq,
+                          phi_pick = phi, nu_pick = nu, priors,
+                          X.ho = X[-ind_mod, ],
+                          coords.ho = coords[-ind_mod, ])
+  t1 <- proc.time() - t0
+  run_time[3, r] = t1[3]
+  DIV_matrix[r, "SPE_M0"] <- mean((pred_M0$y_expect - y[-ind_mod])^2)
+  DIV_matrix[r, "SPE_w_M0"] <- mean((pred_M0$w_expect - w)^2)
+
+  ## exact model Expected log pointwise predictive density ##
+  lp_pred_M0 <- Conj_lpd(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
+                         coords.mod = coords[ind_mod, ],
+                         deltasq_pick = tau.sq / sigma.sq,
+                         phi_pick = phi, nu_pick = nu,
+                         priors, X.ho = X[-ind_mod, ],
+                         y.ho = y[-ind_mod],
+                         coords.ho = coords[-ind_mod, ])
+  DIV_matrix[r, "ELPD_M0"] <- mean(lp_pred_M0)
+
+
   # #######################
   # ## predict with MCMC ##
   # #######################
@@ -174,7 +179,7 @@ for(r in 1:N_list){ # repeat
   # starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
   # tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
   # priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
-  #                  "phi.Unif"=c(3, 21), "sigma.sq.IG"=c(2, 2),
+  #                  "phi.Unif"=c(3, 36), "sigma.sq.IG"=c(2, 2),
   #                  "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
   # cov.model <- "matern"
   # n.report <- 5000
