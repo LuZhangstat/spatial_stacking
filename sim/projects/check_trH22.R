@@ -109,7 +109,12 @@ thm2_cond_d1_dat$label <- factor(thm2_cond_d1_dat$label, levels = 1:N_psi,
                                             "phi=9.5, nu=1.5, deltasq=1.0"))
 
 thm2_cond_d1_dat$type <- factor(thm2_cond_d1_dat$type, levels = 1:4,
+<<<<<<< HEAD
                                 labels = c("U", "B", "C", "D"))
+=======
+                                labels = c("tr(U[1:p, 1:p])", "tr(B[1:p, 1:p])", 
+                                           "tr(C)", "tr(D)"))
+>>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
 
 p1_1 <- ggplot(data = thm2_cond_d1_dat, 
                aes(x = N_sample, y = trUBCD, group = interaction(label, type),
@@ -376,7 +381,11 @@ p2_2 <- ggplot(data = trH22_d2_dat,
   geom_line(aes(linetype = label), position = position_dodge(width=0.3)) + 
   geom_point(aes(shape = label), position = position_dodge(width=0.3)) + 
   theme_bw() + facet_grid(cols = vars(group)) +
+<<<<<<< HEAD
   theme(legend.position = c(0.8, 0.3), legend.title = element_blank(), 
+=======
+  theme(legend.position = c(0.85, 0.3), legend.title = element_blank(), 
+>>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
         legend.background = element_blank()) +
   xlab("sample size") + ylab("tr(H22) / n") + ylim(0.6, 1) + 
   scale_shape_discrete(

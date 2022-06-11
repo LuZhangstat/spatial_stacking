@@ -10,7 +10,7 @@ library("coda")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 2 # simulation index 1 or 2
+sim_ind = 1 # simulation index 1 or 2
 
 
 load(paste0("./sim_hoffman2/results/sim", sim_ind, "_1.Rdata"))
@@ -32,7 +32,7 @@ SPE_w_MCMC = matrix(NA, nrow = N_sim, ncol = N_list)
 
 ## recover the estimated hyper-parameters ##
 deltasq_grid <- c(0.1, 0.5, 1, 2)
-phi_grid = c(3, 9, 15, 21)   #3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) phi_grid = c(3, 13, 23, 33)
+phi_grid = c(3, 14, 25, 36)   #c(3, 9, 15, 21) 3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) phi_grid = c(3, 13, 23, 33)
 nu_grid = c(0.5, 1, 1.5, 1.75)
 grid_all <- expand.grid(deltasq_grid, phi_grid, nu_grid)
 colnames(grid_all) <- c("deltasq", "phi", "nu")
@@ -75,7 +75,18 @@ for(i in 1:N_sim){
   }
 }
 
-
+# SPE_stack_LP = SPE_stack_LP - SPE_M0
+# SPE_stack_LSE = SPE_stack_LSE - SPE_M0
+# SPE_MCMC = SPE_MCMC - SPE_M0
+# SPE_M0 = SPE_M0 - SPE_M0
+# ELPD_stack_LSE = ELPD_stack_LSE - ELPD_M0
+# ELPD_stack_LP = ELPD_stack_LP - ELPD_M0
+# ELPD_MCMC = ELPD_MCMC - ELPD_M0
+# ELPD_M0 = ELPD_M0 - ELPD_M0
+# SPE_w_stack_LP = SPE_w_stack_LP - SPE_w_M0
+# SPE_w_stack_LSE = SPE_w_stack_LSE - SPE_w_M0
+# SPE_w_MCMC = SPE_w_MCMC - SPE_w_M0
+# SPE_w_M0 = SPE_w_M0 - SPE_w_M0
 ####
 
 type = c("M0", "stacking of means", "stacking of predictive densities", 
@@ -104,11 +115,15 @@ dat_check$test <- factor(dat_check$test, levels = 1:3,
                           labels = test)
 
 p_summary <- ggplot(dat_check, aes(x = N_sample, y = value, color = label)) +
-  geom_violin(draw_quantiles = c(0.5)) +theme_bw() + xlab("sample size") + 
+  geom_violin(draw_quantiles = c(0.5)) +theme_bw() + xlab("sample size") +
   facet_wrap(~ test, ncol = 1, scales = "free_y", strip.position="right") +
   theme(legend.position="top", legend.title = element_blank()) + ylab(" ") +
   scale_colour_manual(values=c("#999999", "#E69F00", "#56B4E9", "#009E73"))
+<<<<<<< HEAD
 p_summary  
+=======
+p_summary
+>>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
 
 ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"), 
        plot = p_summary, 
@@ -117,9 +132,17 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
+<<<<<<< HEAD
 sum(weights_nonzero_LSE) / (64 * 8) # 3.6 in sim1; 3.4 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
 sum(weights_nonzero_LP) / (64 * 8) # 4.1 in sim1; 4.3 in sim2
+=======
+sum(weights_nonzero_LSE) / (64 * 8) # 3.57 in sim1; 3.85 in sim2
+# 3.6 in sim1; 3.4 in sim2
+weights_nonzero_LP = (weights_M_LP_all > 0.001)
+sum(weights_nonzero_LP) / (64 * 8) # 4.31 in sim1; 4.66 in sim2
+# 4.1 in sim1; 4.3 in sim2
+>>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -208,7 +231,7 @@ nu_dat$label <- factor(nu_dat$label, levels = 1:2,
 if(sim_ind == 1){
   leg_pos_nu = c(0.8, 0.15)
 }else if (sim_ind == 2){
-  leg_pos_nu = c(0.8, 0.88)
+  leg_pos_nu = c(0.8, 0.91)
 }
 p_est_nu <- 
   ggplot(nu_dat, aes(x = N_sample, y = est_nu, color = label)) +
@@ -552,3 +575,229 @@ image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
+<<<<<<< HEAD
+=======
+
+############################### testing ########################################
+## plot the interpolated maps of the w +x beta on unobserved locations ##
+surf.rawy <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           raw_data[[r]]$y[-raw_data[[r]]$ind_mod]), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           raw_data[[r]]$w[-raw_data[[r]]$ind_mod] + 
+                             raw_data[[r]]$X[-raw_data[[r]]$ind_mod, ] %*% 
+                             raw_data[[r]]$beta), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           expect_y[[r]][, "LSE"]), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ],
+                          expect_y[[r]][, "LP"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                          expect_y[[r]][, "M0"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                            expect_y[[r]][, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+zlim <- range(c(surf.rawy[["z"]], surf.raw[["z"]], surf.LSE[["z"]], 
+                surf.LP[["z"]], surf.M0[["z"]], surf.MCMC[["z"]]))
+surf.brks <- 
+  classIntervals(c(surf.rawy[["z"]], surf.raw[["z"]], surf.LSE[["z"]], 
+                   surf.LP[["z"]], surf.M0[["z"]], surf.MCMC[["z"]]), 500,
+                 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+
+png(paste0("./sim_hoffman2/pics/w_xb_pred_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
+par(mfrow = c(2, 3))
+
+i0 <- as.image.SpatialGridDataFrame(surf.rawy)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw y")
+axis(2, las=1)
+axis(1)
+image.plot(i0, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw w+xb")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of means") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of predictive densities") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
+
+
+## plot the interpolated maps of the y on unobserved locations ##
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           raw_data[[r]]$y[-raw_data[[r]]$ind_mod]), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           expect_y[[r]][, "LSE"]), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ],
+                          expect_y[[r]][, "LP"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                          expect_y[[r]][, "M0"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                            expect_y[[r]][, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                surf.M0[["z"]], surf.MCMC[["z"]]))
+surf.brks <- 
+  classIntervals(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                   surf.M0[["z"]], surf.MCMC[["z"]]), 500, 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+
+png(paste0("./sim_hoffman2/pics/y_pred_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
+par(mfrow = c(2, 3))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of means") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of predictive densities") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
+
+
+## plot the interpolated maps of y on all locations ##
+### h <- 12
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$y), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords, 
+                           c(raw_data[[r]]$y[raw_data[[r]]$ind_mod],
+                             expect_y[[r]][, "LSE"])), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords, 
+                          c(raw_data[[r]]$y[raw_data[[r]]$ind_mod],
+                            expect_y[[r]][, "LP"])), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords, 
+                          c(raw_data[[r]]$y[raw_data[[r]]$ind_mod],
+                            expect_y[[r]][, "M0"])), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords, 
+                            c(raw_data[[r]]$y[raw_data[[r]]$ind_mod],
+                              expect_y[[r]][, "MCMC"])), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+surf.brks <- 
+  classIntervals(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                   surf.M0[["z"]], surf.MCMC[["z"]]), 500, 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                surf.M0[["z"]], surf.MCMC[["z"]]))
+
+
+## plot the interpolated maps of expected on all locations ##
+png(paste0("./sim_hoffman2/pics/y_all_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
+# setEPS()
+# postscript("./pic/map-w-true.eps")
+par(mfrow = c(2, 3))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of means") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of predictive densities") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
+
+
+>>>>>>> dd64eb2be66346625452c64fd685f1d1b13dd9c8
