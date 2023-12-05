@@ -43,12 +43,20 @@ combined_data <- df_aod %>%
 # Check the combined data frame
 glimpse(combined_data)
 
+# Convert the mask to a data frame
+mask_df <- data.frame(mask = c(LA_testmask), x = x_ind, y = y_ind)
+combined_data_train <- combined_data %>% 
+  left_join(mask_df, by = c("x", "y")) %>%filter(mask == FALSE)
+glimpse(combined_data_train)
+# training: 11,857; testing: 4,146
+
+
 ## Some simple data analysis ##
-# 1. linear regression:
-lm_fit <- lm(AOD~x+y+., data = combined_data)
-summary(lm_fit)   # Adjusted R-squared = 0.7326
-lm_fit2 <- lm(log(AOD)~x+y+., data = combined_data)
-summary(lm_fit2)   # R-squared = 0.737
+# linear regression:
+lm_fit <- lm(AOD~x+y+., data = combined_data_train)
+summary(lm_fit)   # Adjusted R-squared = 0.7387
+lm_fit2 <- lm(log(AOD)~x+y+., data = combined_data_train)
+summary(lm_fit2)   # R-squared = 0.7336
 # check residual
 AOD_residual1 <- residuals(lm_fit); hist(AOD_residual1)
 qqnorm(scale(AOD_residual1)); abline(a=0,b=1)
@@ -56,11 +64,7 @@ AOD_residual2 <- residuals(lm_fit2); hist(AOD_residual2)
 qqnorm(scale(AOD_residual2)); abline(a=0,b=1)
 #' Obviously the residual of log AOD behaves similar to Gaussian
 #' We use Log_transform here in the model fitting.
-combined_data$logAOD <- log(combined_data$AOD)
-
-# 2. Variogram
-
-
+combined_data_train$logAOD <- log(combined_data_train$AOD)
 
 ## Visualization ##
 # The map of the raw AOD data in central LA ##
@@ -83,9 +87,19 @@ V_p <- ggplot(combined_data, aes(x = x, y = y, fill = V3)) +
         axis.ticks = element_blank())
 V_p
 
+# check the residual #
+res_dat <- data.frame(residual = AOD_residual2, x = combined_data_train$x,
+                      y = combined_data_train$y)
+res_p <- ggplot(res_dat, aes(x = x, y = y, fill = residual)) + 
+  geom_tile() + 
+  scale_fill_gradientn(colors = viridis::viridis(6)) +
+  theme_minimal() + 
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank())
+res_p
+
 # Plot the masked image #
-# Convert the mask to a data frame
-mask_df <- data.frame(mask = c(LA_testmask), x = x_ind, y = y_ind)
 aod_mask <- ggplot() + coord_fixed() + # Ensure the aspect ratio remains fixed
   geom_tile(data = combined_data,         # Add the image layer
             aes(x = x, y = y, fill = logAOD)) +
@@ -103,6 +117,42 @@ aod_mask
 
 
 
+## Variogram ##
+library(geoR)
+### variogram of raw data and residuals ###
+coords_train <- combined_data_train[, c("x", "y")]
+max.dist=0.5*max(rdist(coords_train))
+bins=20
+vario.AOD <- variog(coords=coords_train, data=combined_data_train$logAOD, 
+                    uvec=(seq(0.5, max.dist, length=bins)))
+plot(vario.AOD)
+max.dist=0.1*max(rdist(coords_train))
+bins=30
+vario.AOD.resid <- variog(coords=coords_train, 
+                          data=AOD_residual2, 
+                          uvec=(seq(0.5, max.dist, length=bins)))
+plot(vario.AOD.resid)
+
+vario.AOD.resid2 <- variog(coords=coords_train, 
+                           data=AOD_residual2, 
+                           uvec=(seq(0.5, max.dist, length=bins)),
+                           estimator.type="modulus")
+plot(vario.AOD.resid2)
+vfit_wls=variofit(vario.AOD.resid2, 
+                  ini.cov.pars=c(0.02, 10), 
+                  nugget=0.001, 
+                  fix.nugget=FALSE, fix.kappa = FALSE,
+                  cov.model='matern', 
+                  weights='cressie')
+vfit_wls
+plot(vario.AOD.resid2)
+lines(vfit_wls,col="purple",lwd=1.5)
+
+## decide the grids for hyper-parameters ##
+# phi: 1,30
+# Sigmasq: 
+# tausq:
+# kappa:
 
 
 

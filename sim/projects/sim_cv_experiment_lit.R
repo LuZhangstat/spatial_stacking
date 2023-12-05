@@ -7,6 +7,7 @@ library(cmdstanr)
 library(geoR)
 library(rbenchmark)
 library("gridExtra")
+library(fields)
 source("utils.R")
 #options(mc.cores = parallel::detectCores())
 

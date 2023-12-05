@@ -5,7 +5,7 @@ library(quadprog)   # Quadratic Programming Problems
 library(cvTools) #run the above line if you don't have this library
 library(rdist)
 library(CVXR)  # stacking weights computation
-library(Rmosek)
+library(Rmosek) # need to install mosek 
 
 QP_stacking_weight <- function(Y_hat, y){
   
