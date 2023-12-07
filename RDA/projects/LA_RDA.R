@@ -5,6 +5,7 @@ library(tibble)
 library(dplyr)
 library(ggplot2)
 
+# load raw data
 np <- import("numpy")
 LA_AOD <- np$load("./RDA/LAdemoData/LA_AOD_17000-997-zeroNotValid.npy")
 LA_testmask <- np$load("./RDA/LAdemoData/LA_testmask_4146.npy")
@@ -56,19 +57,19 @@ glimpse(combined_data_train)
 lm_fit <- lm(AOD~x+y+., data = combined_data_train)
 summary(lm_fit)   # Adjusted R-squared = 0.7387
 lm_fit2 <- lm(log(AOD)~x+y+., data = combined_data_train)
-summary(lm_fit2)   # R-squared = 0.7336
+summary(lm_fit2)   # Adjusted R-squared = 0.7336
 # check residual
 AOD_residual1 <- residuals(lm_fit); hist(AOD_residual1)
 qqnorm(scale(AOD_residual1)); abline(a=0,b=1)
 AOD_residual2 <- residuals(lm_fit2); hist(AOD_residual2)
 qqnorm(scale(AOD_residual2)); abline(a=0,b=1)
-#' Obviously the residual of log AOD behaves similar to Gaussian
+#' The residual of log AOD behaves similar to Gaussian
 #' We use Log_transform here in the model fitting.
 combined_data_train$logAOD <- log(combined_data_train$AOD)
 
 ## Visualization ##
 # The map of the raw AOD data in central LA ##
-aod_p <- ggplot(combined_data, aes(x = x, y = y, fill = logAOD)) + 
+aod_p <- ggplot(combined_data, aes(x = x, y = y, fill = log(AOD))) + 
   geom_tile() + 
   scale_fill_gradientn(colors = viridis::viridis(6)) +
   theme_minimal() + 
@@ -102,7 +103,7 @@ res_p
 # Plot the masked image #
 aod_mask <- ggplot() + coord_fixed() + # Ensure the aspect ratio remains fixed
   geom_tile(data = combined_data,         # Add the image layer
-            aes(x = x, y = y, fill = logAOD)) +
+            aes(x = x, y = y, fill = log(AOD))) +
   geom_tile(data = mask_df,        # Overlay the mask layer
             aes(x = x, y = y), fill = "white", 
             alpha = ifelse(mask_df$mask, 0.9, 0)) +
@@ -119,6 +120,7 @@ aod_mask
 
 ## Variogram ##
 library(geoR)
+library(fields)
 ### variogram of raw data and residuals ###
 coords_train <- combined_data_train[, c("x", "y")]
 max.dist=0.5*max(rdist(coords_train))
@@ -126,8 +128,8 @@ bins=20
 vario.AOD <- variog(coords=coords_train, data=combined_data_train$logAOD, 
                     uvec=(seq(0.5, max.dist, length=bins)))
 plot(vario.AOD)
-max.dist=0.1*max(rdist(coords_train))
-bins=30
+max.dist=0.15*max(rdist(coords_train)) #0.1
+bins=45 # 30
 vario.AOD.resid <- variog(coords=coords_train, 
                           data=AOD_residual2, 
                           uvec=(seq(0.5, max.dist, length=bins)))
@@ -146,13 +148,41 @@ vfit_wls=variofit(vario.AOD.resid2,
                   weights='cressie')
 vfit_wls
 plot(vario.AOD.resid2)
-lines(vfit_wls,col="purple",lwd=1.5)
+lines(vfit_wls, col="purple", lwd=1.5)
 
 ## decide the grids for hyper-parameters ##
-# phi: 1,30
-# Sigmasq: 
-# tausq:
-# kappa:
+library(telefit)
+library(GPBayes)
+#' Based on empirical semivariogram, we select range to be 1 (almost independent) 
+#' to 20 meters
+#' effective range c(1, 5, 10, 20)
+#' delatsq: 0.1, 0.5, 1, 2
+#' 1. kappa = 0.5, effective range 1 -20. phi = 3-60
+
+eff_range <- c(1, 5, 10, 20)
+nu_ls <- c(0.5, 1.0, 1.5)
+
+# test function ...
+decay_est <-  function(eff_r_ls, nu_ls){
+  # eff_r_ls: list of effective range
+  # nu_ls: list of candidate smoothness in matern
+  decay_ls <- matrix(NA, nrow = length(eff_r_ls), ncol = length(nu_ls))
+  # decay_ls records candidate decay (row) for each nu (col)
+  for(i in 1:length(eff_r_ls)){
+    for(j in 1:length(nu_ls)){
+      decay_ls[i, j] <- 1/cor.to.par(
+        d = eff_r_ls[i], #effective range
+        param=list(nu = nu_ls[j]),
+        family = "matern",
+        cor.target = 0.05
+      )
+    }
+  }
+}
+
+
+
+
 
 
 
