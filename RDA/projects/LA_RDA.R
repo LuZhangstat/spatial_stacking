@@ -161,24 +161,8 @@ library(GPBayes)
 
 eff_range <- c(1, 5, 10, 20)
 nu_ls <- c(0.5, 1.0, 1.5)
-
-# test function ...
-decay_est <-  function(eff_r_ls, nu_ls){
-  # eff_r_ls: list of effective range
-  # nu_ls: list of candidate smoothness in matern
-  decay_ls <- matrix(NA, nrow = length(eff_r_ls), ncol = length(nu_ls))
-  # decay_ls records candidate decay (row) for each nu (col)
-  for(i in 1:length(eff_r_ls)){
-    for(j in 1:length(nu_ls)){
-      decay_ls[i, j] <- 1/cor.to.par(
-        d = eff_r_ls[i], #effective range
-        param=list(nu = nu_ls[j]),
-        family = "matern",
-        cor.target = 0.05
-      )
-    }
-  }
-}
+decay_est(eff_range, nu_ls)
+  
 
 
 
