@@ -15,9 +15,9 @@ source("utils2.R") # utils2.R is the testing code #
 # test 1: grid #
 # decide the bound of the candidate values for phi
 range(c(1 / Matern.cor.to.range(0.6 * sqrt(2), 0.5, cor.target=.05),
-  1 / Matern.cor.to.range(0.1 * sqrt(2), 0.5, cor.target=.05),
-  1 / Matern.cor.to.range(0.6 * sqrt(2), 1.75, cor.target=.05),
-  1 / Matern.cor.to.range(0.1 * sqrt(2), 1.75, cor.target=.05)))
+        1 / Matern.cor.to.range(0.1 * sqrt(2), 0.5, cor.target=.05),
+        1 / Matern.cor.to.range(0.6 * sqrt(2), 1.75, cor.target=.05),
+        1 / Matern.cor.to.range(0.1 * sqrt(2), 1.75, cor.target=.05)))
 
 deltasq_grid <- c(0.1, 0.5, 1, 2)
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
@@ -31,8 +31,8 @@ colnames(phi_nu_ls) = c("phi", "nu")
 
 
 # test 3: posterior sample from marginal distribution #
-# TBD
 
+load("./sim_hoffman2/results/sim2_1.RData")
 
 
 # Simulation #
@@ -103,8 +103,9 @@ for(r in 1:N_list){ # repeat
   ind_mod = 1:(N - N_ho)
   
   raw_data[[r]] <- list(X = X, y = y, w = w, coords = coords, beta = beta,
-                              phi = phi, nu = nu, tau.sq = tau.sq, 
-                              sigma.sq = sigma.sq, ind_mod = ind_mod)
+                        phi = phi, nu = nu, tau.sq = tau.sq, 
+                        sigma.sq = sigma.sq, ind_mod = ind_mod)
+  
   
   ####################################################################
   ## stacking with prediction (LSE) and log predictive density (LP) ##
@@ -116,7 +117,7 @@ for(r in 1:N_list){ # repeat
     seed = seed, label = "LSE")
   weights_M_LSE[, r] <- CV_fit_LSE$wts
   run_time["Stack_LSE_G", r] <- CV_fit_LSE$time[3]
-
+  
   CV_fit_LP <- sp_stacking_K_fold(
     X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
     deltasq_grid = deltasq_grid, phi_grid = phi_grid,
@@ -124,7 +125,7 @@ for(r in 1:N_list){ # repeat
     seed = seed, label = "LP", MC = FALSE)
   weights_M_LP[, r] <- CV_fit_LP$wts
   run_time["Stack_LP_G", r] <- CV_fit_LP$time[3]
-
+  
   
   ## stacking mean squared prediction error ##
   y_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
@@ -252,7 +253,7 @@ for(r in 1:N_list){ # repeat
   run_time[3, r] = t1[3]
   DIV_matrix[r, "SPE_M0"] <- mean((pred_M0$y_expect - y[-ind_mod])^2)
   DIV_matrix[r, "SPE_w_M0"] <- mean((pred_M0$w_expect - w)^2)
-
+  
   ## exact model Expected log pointwise predictive density ##
   lp_pred_M0 <- Conj_lpd(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
                          coords.mod = coords[ind_mod, ],
@@ -262,12 +263,12 @@ for(r in 1:N_list){ # repeat
                          y.ho = y[-ind_mod],
                          coords.ho = coords[-ind_mod, ])
   DIV_matrix[r, "ELPD_M0"] <- mean(lp_pred_M0)
-
-
+  
+  
   #######################
   ## predict with MCMC ##
   #######################
-
+  
   ### fit with spBayes ###
   n.samples <- 20000
   starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
@@ -282,13 +283,13 @@ for(r in 1:N_list){ # repeat
               starting=starting,
               tuning=tuning, priors=priors.1, cov.model=cov.model,
               n.samples=n.samples, verbose=verbose, n.report=n.report)
-
+  
   ## recover beta ##
   t0 <- proc.time()
   r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
                    n.report =  500)
   t1 <- proc.time() - t0
-
+  
   run_time["MCMC1", r] <- m.1$run.time[3]
   run_time["MCMC2", r] <- t1[3]
   ## recover latent process on all locations ##
@@ -301,30 +302,35 @@ for(r in 1:N_list){ # repeat
                            coords.ho = coords[-ind_mod, ])
   run_time["MCMC3", r] <- MCMC_out$time[3]
   MCMC_par[[r]] <- r.1$p.theta.recover.samples
-
+  
   DIV_matrix[r, "SPE_MCMC"] <- mean((MCMC_out$y_expect_MCMC - y[-ind_mod])^2)
   DIV_matrix[r, "SPE_w_MCMC"] <- mean((MCMC_out$w_expect_MCMC - w)^2)
   DIV_matrix[r, "ELPD_MCMC"] <- mean(MCMC_out$lp_expect_MCMC)
-
+  
   ####################################################################
   ## select prefixed value based on marginal posterior distribution ##
   ####################################################################
-  str(m.1$p.theta.samples)
+  pick_ind <- seq(300, 1000, by = 11)
+  all_prefix_ls <- cbind(MCMC_par[[r]][pick_ind, "tau.sq"] / 
+                           MCMC_par[[r]][pick_ind, "sigma.sq"],
+                         MCMC_par[[r]][pick_ind, c("phi", "nu")]) 
+  colnames(all_prefix_ls) <- c("delatsq", "phi", "nu")
+  all_prefix_ls <- as.data.frame(all_prefix_ls)
   
-  CV_fit_LSE <- sp_stacking_K_fold2(
+  CV_fit_LSE <- sp_stacking_K_fold3(
     X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
-    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, priors = priors, 
+    all_prefix_ls = all_prefix_ls, priors = priors, 
     K_fold = K_fold, seed = seed, label = "LSE")
   weights_M_LSE[, r] <- CV_fit_LSE$wts
-  run_time["Stack_LSE_E", r] <- CV_fit_LSE$time[3]
+  run_time["Stack_LSE_P", r] <- CV_fit_LSE$time[3]
   
-  CV_fit_LP <- sp_stacking_K_fold2(
+  CV_fit_LP <- sp_stacking_K_fold3(
     X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
-    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, 
+    all_prefix_ls = all_prefix_ls, 
     priors = priors, K_fold = K_fold,
     seed = seed, label = "LP", MC = FALSE)
   weights_M_LP[, r] <- CV_fit_LP$wts
-  run_time["Stack_LP_E", r] <- CV_fit_LP$time[3]
+  run_time["Stack_LP_P", r] <- CV_fit_LP$time[3]
   
   
   ## stacking mean squared prediction error ##
@@ -346,14 +352,14 @@ for(r in 1:N_list){ # repeat
     }
   }
   y_pred_stack_LSE = y_pred_grid %*% CV_fit_LSE$wts
-  DIV_matrix[r, "SPE_stack_LSE_E"] <- mean((y_pred_stack_LSE - y[-ind_mod])^2)
+  DIV_matrix[r, "SPE_stack_LSE_P"] <- mean((y_pred_stack_LSE - y[-ind_mod])^2)
   y_pred_stack_LP = y_pred_grid %*% CV_fit_LP$wts
-  DIV_matrix[r, "SPE_stack_LP_E"] <- mean((y_pred_stack_LP - y[-ind_mod])^2)
+  DIV_matrix[r, "SPE_stack_LP_P"] <- mean((y_pred_stack_LP - y[-ind_mod])^2)
   
   w_expect_stack_LSE = w_expect_grid %*% CV_fit_LSE$wts
-  DIV_matrix[r, "SPE_w_stack_LSE_E"] <- mean((w_expect_stack_LSE - w)^2)
+  DIV_matrix[r, "SPE_w_stack_LSE_P"] <- mean((w_expect_stack_LSE - w)^2)
   w_expect_stack_LP = w_expect_grid %*% CV_fit_LP$wts
-  DIV_matrix[r, "SPE_w_stack_LP_E"] <- mean((w_expect_stack_LP - w)^2)
+  DIV_matrix[r, "SPE_w_stack_LP_P"] <- mean((w_expect_stack_LP - w)^2)
   
   
   ## stacking Expected log pointwise predictive density ##
@@ -370,19 +376,8 @@ for(r in 1:N_list){ # repeat
                                     coords.ho = coords[-ind_mod, ], MC = FALSE)
     }
   }
-  DIV_matrix[r, "ELPD_stack_LSE_E"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LSE$wts))
-  DIV_matrix[r, "ELPD_stack_LP_E"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts))
-  
-  
-  
-  
-  
-  # expect_y[[r]] <- cbind(y_pred_stack_LSE, y_pred_stack_LP, pred_M0$y_expect,
-  #                        MCMC_out$y_expect_MCMC)
-  # colnames(expect_y[[r]]) <- c("LSE", "LP", "M0", "MCMC")
-  # expect_w[[r]] <- cbind(w_expect_stack_LSE, w_expect_stack_LP, pred_M0$w_expect,
-  #                        MCMC_out$w_expect_MCMC)
-  # colnames(expect_w[[r]]) <- c("LSE", "LP", "M0", "MCMC")
+  DIV_matrix[r, "ELPD_stack_LSE_P"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LSE$wts))
+  DIV_matrix[r, "ELPD_stack_LP_P"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts))
 }
 summary(DIV_matrix)
 (run_time[4, ] + run_time[5, ])/run_time[1, ]
@@ -393,7 +388,7 @@ type = c("stacking LSE", "stacking LP", "M0", "MCMC")
 
 dat_check <- data.frame(N_sample = rep(samplesize_ls, length(type)),
                         SPE = c(DIV_matrix[, c("SPE_stack_LSE", "SPE_stack_LP", 
-                                           "SPE_M0", "SPE_MCMC")]),
+                                               "SPE_M0", "SPE_MCMC")]),
                         SPE_w = c(DIV_matrix[, c("SPE_w_stack_LSE", 
                                                  "SPE_w_stack_LP", "SPE_w_M0", 
                                                  "SPE_w_MCMC")]),
@@ -481,11 +476,11 @@ h <- 12
 surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$w), no.X = 300, 
                      no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
 surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LSE"]), 
-                       no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
 surf.LP <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LP"]), 
-                        no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
 surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "M0"]), 
-                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
 surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "MCMC"]), 
                       no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
 
