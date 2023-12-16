@@ -217,6 +217,31 @@ w_expect_grid <- matrix(0, nrow = N+N_ho, ncol = nrow(CV_fit_LSE$grid_all))
 
 # TO DO: generate posterior samples and compute the 95% CI
 # use function Conj_pos_sam
+# obtain point estimator
+t <- proc.time()
+j = 1;
+pos_y_U <- c()
+pos_w_U <- c()
+for (i in 1:nrow(CV_fit_LSE$grid_all)){
+  cat(i, "\t")
+  if((CV_fit_LSE$wts[i]>0.00001)){ # | (CV_fit_LP$wts[i]>0)){
+    pred_pos_sam <- 
+      Conj_pos_sam(X.mod = as.matrix(
+        combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+        y.mod = combined_data_train$logAOD,
+        coords.mod = coords_train,
+        deltasq_pick = CV_fit_LSE$grid_all$deltasq[i],
+        phi_pick = CV_fit_LSE$grid_all$phi[i], 
+        nu_pick = CV_fit_LSE$grid_all$nu[i], priors,
+        X.ho = as.matrix(
+          combined_data_test[, c("x", "y", paste0("V", 1:64))]), 
+        coords.ho = as.matrix(
+          combined_data_test[, c("x", "y")]))
+    pos_y_U[[j]] <- Conj_pos_sam$y_U_expect 
+    j = j + 1
+  }
+}
+proc.time() - t
 
 
 # obtain point estimator
@@ -243,8 +268,13 @@ proc.time() - t
 y_pred_stack_LSE = y_pred_grid %*% CV_fit_LSE$wts
 
 # test R^2
-1 - (exp(y_pred_stack_LSE) - combined_data_test$AOD)^2/ 
-  (combined_data_test$AOD - mean(combined_data_test$AOD))^2
+1 - sum((exp(c(y_pred_stack_LSE)) - combined_data_test$AOD)^2)/ 
+  sum((combined_data_test$AOD - mean(combined_data_test$AOD))^2)
+#0.8684145 86.84%
+
+1 - sum((c(y_pred_stack_LSE) - log(combined_data_test$AOD))^2)/ 
+  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
+# 0.8688392 86.88%
 
 #10*3*12*time
 
