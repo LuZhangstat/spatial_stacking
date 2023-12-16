@@ -775,8 +775,10 @@ sp_stacking_K_fold2 <- function(X, y, coords, deltasq_grid, phi_nu_ls,
     phi_pick <- grid_phi_nv$phi[i1]
     nu_pick <- grid_phi_nv$nu[i1]
     for (k in 1:K_fold){
+      t <- proc.time()
       invR_nk = chol2inv(chol(geoR::matern(as.matrix(dist(coords[-ind_k_list[[k]], ])),
                                            phi = 1 / phi_pick, kappa = nu_pick)))
+      proc.time() - t
       R_k_nk = geoR::matern(cdist(coords[ind_k_list[[k]], ],
                                   coords[-ind_k_list[[k]], ]),
                             phi = 1 / phi_pick, kappa = nu_pick)
