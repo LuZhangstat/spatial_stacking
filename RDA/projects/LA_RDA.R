@@ -55,10 +55,11 @@ glimpse(combined_data_test)
 # training: 11,857; testing: 4,146
 
 ## Some simple data analysis ##
+pick_var <- c("AOD", "x", "y", paste0("V", 1:64))
 # linear regression:
-lm_fit <- lm(AOD~x+y+., data = combined_data_train)
+lm_fit <- lm(AOD~x+y+., data = combined_data_train[, pick_var])
 summary(lm_fit)   # Adjusted R-squared = 0.7387
-lm_fit2 <- lm(log(AOD)~x+y+., data = combined_data_train)
+lm_fit2 <- lm(log(AOD)~x+y+., data = combined_data_train[, pick_var])
 summary(lm_fit2)   # Adjusted R-squared = 0.7336
 # check residual
 AOD_residual1 <- residuals(lm_fit); hist(AOD_residual1)
@@ -68,7 +69,10 @@ qqnorm(scale(AOD_residual2)); abline(a=0,b=1)
 #' The residual of log AOD behaves similar to Gaussian
 #' We use Log_transform here in the model fitting.
 combined_data_train$logAOD <- log(combined_data_train$AOD)
-
+pred_lm <- predict(lm_fit2, combined_data_test[, c("x", "y", paste0("V", 1:64))])
+1 - sum((exp(c(pred_lm)) - combined_data_test$AOD)^2)/ 
+  sum((combined_data_test$AOD - mean(combined_data_test$AOD))^2)
+#0.6877944
 
 ## Visualization ##
 # The map of the raw AOD data in central LA ##
@@ -168,7 +172,7 @@ nu_grid <- c(0.5, 1.0, 1.5)
 phi_ls <- decay_est(eff_range, nu_grid)
 phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
 colnames(phi_nu_ls) = c("phi", "nu")
-deltasq_grid <- c(0.01, 0.1, 0.5)
+deltasq_grid <- c(0.001, 0.01, 0.1, 0.5)
 
 
 p = 64+2
@@ -181,33 +185,67 @@ seed = 123
 
 run_tag <- FALSE
 if(run_tag){
-CV_fit_LSE <- sp_stacking_K_fold2(
-  X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
-  y = combined_data_train$logAOD, 
-  coords = coords_train,
-  deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, priors = priors, 
-  K_fold = K_fold, seed = seed, label = "LSE")
-# let's test the R^2 and coverage 
-CV_fit_LSE$time #4.3 hours
-save(CV_fit_LSE, file = "./RDA/result/CV_fit_LSE.RData")
+  CV_fit_LSE <- sp_stacking_K_fold2(
+    X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+    y = combined_data_train$logAOD, 
+    coords = coords_train,
+    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, priors = priors, 
+    K_fold = K_fold, seed = seed, label = "LSE")
+  # let's test the R^2 and coverage 
+  CV_fit_LSE$time #4.3 hours
+  save(CV_fit_LSE, file = "./RDA/result/CV_fit_LSE.RData")
 }
 load("./RDA/result/CV_fit_LSE.RData")
 weights_LSE <- CV_fit_LSE$wts
 
-if(run_tag){
-CV_fit_LP <- sp_stacking_K_fold2(
-  X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
-  y = combined_data_train$logAOD, 
-  coords = coords_train,
-  deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, 
-  priors = priors, K_fold = K_fold,
-  seed = seed, label = "LP", MC = FALSE)
-save(CV_fit_LP, file = "./RDA/result/CV_fit_LP.RData")
-}
-load("./RDA/result/CV_fit_LP.RData")
 
-weights_M_LP[, r] <- CV_fit_LP$wts
-run_time2["Stack_LP_E", r] <- CV_fit_LP$time[3]
+# Generate posterior samples and compute the 95% CI
+if(run_tag){
+  t <- proc.time()
+  j = 1; L = 300; # L the No. samplse for each candidate model
+  pick_mods <- CV_fit_LSE$grid_all[(CV_fit_LSE$wts>0.00001), ]
+  pos_y_U <- c()
+  pos_w_U <- c()
+  for (j in 1:length(pick_mods$deltasq)){
+    cat(j, "\t")
+    pred_pos_sam <- 
+      Conj_pos_sam(X.mod = as.matrix(
+        combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+        y.mod = combined_data_train$logAOD,
+        coords.mod = coords_train,
+        deltasq_pick = pick_mods$deltasq[j],
+        phi_pick = pick_mods$phi[j], 
+        nu_pick = pick_mods$nu[j], priors,
+        X.ho = as.matrix(
+          combined_data_test[, c("x", "y", paste0("V", 1:64))]), 
+        coords.ho = as.matrix(
+          combined_data_test[, c("x", "y")]),
+        L = L)
+    pos_y_U[[j]] <- pred_pos_sam$y_U_expect 
+  }
+  proc.time() - t
+  stack_prob <- CV_fit_LSE$wts[(CV_fit_LSE$wts>0.00001)]
+  num_counts <- c(rmultinom(n = 1, size = L, prob= stack_prob))
+  pick_ind <- lapply(1:length(stack_prob), 
+                     function(x){sort(sample.int(L, num_counts[x], 
+                                                 replace = TRUE))})
+  #save the predictive samples for y
+  pred_y_U_stack_sam_LSE <- do.call(cbind,
+                                    sapply(1:length(stack_prob), function(x){
+                                      pos_y_U[[x]][, pick_ind[[x]]]
+                                    }))
+  save(pred_y_U_stack_sam_LSE, file = "./RDA/result/pred_y_U_stack_sam_LSE.RData")
+}
+load("./RDA/result/pred_y_U_stack_sam_LSE.RData")
+# Obtain 95% CIs
+y_U_CI_stack_LSE <- 
+  apply(pred_y_U_stack_sam, 1, 
+        function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
+
+sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
+      (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
+# 0.8082489, ~80% coverage
+
 
 ## stacking mean squared prediction error ##
 N_ho <- length(combined_data_test$x)
@@ -215,36 +253,6 @@ N <- length(combined_data_train$x)
 y_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
 w_expect_grid <- matrix(0, nrow = N+N_ho, ncol = nrow(CV_fit_LSE$grid_all))
 
-# TO DO: generate posterior samples and compute the 95% CI
-# use function Conj_pos_sam
-# obtain point estimator
-t <- proc.time()
-j = 1;
-pos_y_U <- c()
-pos_w_U <- c()
-for (i in 1:nrow(CV_fit_LSE$grid_all)){
-  cat(i, "\t")
-  if((CV_fit_LSE$wts[i]>0.00001)){ # | (CV_fit_LP$wts[i]>0)){
-    pred_pos_sam <- 
-      Conj_pos_sam(X.mod = as.matrix(
-        combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
-        y.mod = combined_data_train$logAOD,
-        coords.mod = coords_train,
-        deltasq_pick = CV_fit_LSE$grid_all$deltasq[i],
-        phi_pick = CV_fit_LSE$grid_all$phi[i], 
-        nu_pick = CV_fit_LSE$grid_all$nu[i], priors,
-        X.ho = as.matrix(
-          combined_data_test[, c("x", "y", paste0("V", 1:64))]), 
-        coords.ho = as.matrix(
-          combined_data_test[, c("x", "y")]))
-    pos_y_U[[j]] <- Conj_pos_sam$y_U_expect 
-    j = j + 1
-  }
-}
-proc.time() - t
-
-
-# obtain point estimator
 t <- proc.time()
 for (i in 1:nrow(CV_fit_LSE$grid_all)){
   if((CV_fit_LSE$wts[i]>0.00001)){ # | (CV_fit_LP$wts[i]>0)){
@@ -278,9 +286,67 @@ y_pred_stack_LSE = y_pred_grid %*% CV_fit_LSE$wts
 
 #10*3*12*time
 
+# stacking with respect to probability #
+if(run_tag){
+  CV_fit_LP <- sp_stacking_K_fold2(
+    X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+    y = combined_data_train$logAOD, 
+    coords = coords_train,
+    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, 
+    priors = priors, K_fold = K_fold,
+    seed = seed, label = "LP", MC = FALSE)
+  save(CV_fit_LP, file = "./RDA/result/CV_fit_LP.RData")
+}
+load("./RDA/result/CV_fit_LP.RData")
+
+weights_M_LP <- CV_fit_LP$wts
+
+# Generate posterior samples and compute the 95% CI
+if(run_tag){
+  t <- proc.time()
+  j = 1; L = 300; # L the No. samplse for each candidate model
+  pick_mods <- CV_fit_LP$grid_all[(CV_fit_LP$wts>0.00001), ]
+  pos_y_U <- c()
+  pos_w_U <- c()
+  for (j in 1:length(pick_mods$deltasq)){
+    cat(j, "\t")
+    pred_pos_sam <- 
+      Conj_pos_sam(X.mod = as.matrix(
+        combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+        y.mod = combined_data_train$logAOD,
+        coords.mod = coords_train,
+        deltasq_pick = pick_mods$deltasq[j],
+        phi_pick = pick_mods$phi[j], 
+        nu_pick = pick_mods$nu[j], priors,
+        X.ho = as.matrix(
+          combined_data_test[, c("x", "y", paste0("V", 1:64))]), 
+        coords.ho = as.matrix(
+          combined_data_test[, c("x", "y")]),
+        L = L)
+    pos_y_U[[j]] <- pred_pos_sam$y_U_expect 
+  }
+  proc.time() - t
+  stack_prob <- CV_fit_LP$wts[(CV_fit_LP$wts>0.00001)]
+  num_counts <- c(rmultinom(n = 1, size = L, prob= stack_prob))
+  pick_ind <- lapply(1:length(stack_prob), 
+                     function(x){sort(sample.int(L, num_counts[x], 
+                                                 replace = TRUE))})
+  #save the predictive samples for y
+  pred_y_U_stack_sam_LP <- do.call(cbind,
+                                    sapply(1:length(stack_prob), function(x){
+                                      pos_y_U[[x]][, pick_ind[[x]]]
+                                    }))
+  save(pred_y_U_stack_sam_LP, file = "./RDA/result/pred_y_U_stack_sam_LP.RData")
+}
+load("./RDA/result/pred_y_U_stack_sam_LP.RData")
 
 
+# Obtain 95% CIs
+y_U_CI_stack_LP <- 
+  apply(pred_y_U_stack_sam_LP, 1, 
+        function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
 
-
+sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
+      (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
 
 
