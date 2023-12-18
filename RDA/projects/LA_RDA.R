@@ -52,6 +52,8 @@ glimpse(combined_data_train)
 combined_data_test <- combined_data %>% 
   left_join(mask_df, by = c("x", "y")) %>%filter(mask == TRUE)
 glimpse(combined_data_test)
+N_ho <- length(combined_data_test$x)
+N <- length(combined_data_train$x)
 # training: 11,857; testing: 4,146
 
 ## Some simple data analysis ##
@@ -239,17 +241,15 @@ if(run_tag){
 load("./RDA/result/pred_y_U_stack_sam_LSE.RData")
 # Obtain 95% CIs
 y_U_CI_stack_LSE <- 
-  apply(pred_y_U_stack_sam, 1, 
+  apply(pred_y_U_stack_sam_LSE, 1, 
         function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
 
 sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
-# 0.8082489, ~80% coverage
+# 0.7957067, ~80% coverage
 
 
 ## stacking mean squared prediction error ##
-N_ho <- length(combined_data_test$x)
-N <- length(combined_data_train$x)
 y_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
 w_expect_grid <- matrix(0, nrow = N+N_ho, ncol = nrow(CV_fit_LSE$grid_all))
 
@@ -308,8 +308,10 @@ if(run_tag){
   pick_mods <- CV_fit_LP$grid_all[(CV_fit_LP$wts>0.00001), ]
   pos_y_U <- c()
   pos_w_U <- c()
+  cat("No. of models:", length(pick_mods$deltasq), "\n")
   for (j in 1:length(pick_mods$deltasq)){
     cat(j, "\t")
+    t1 <- proc.time()
     pred_pos_sam <- 
       Conj_pos_sam(X.mod = as.matrix(
         combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
@@ -324,6 +326,7 @@ if(run_tag){
           combined_data_test[, c("x", "y")]),
         L = L)
     pos_y_U[[j]] <- pred_pos_sam$y_U_expect 
+    cat("use time: ", (proc.time() - t1)[3], "\n")
   }
   proc.time() - t
   stack_prob <- CV_fit_LP$wts[(CV_fit_LP$wts>0.00001)]
@@ -336,10 +339,23 @@ if(run_tag){
                                     sapply(1:length(stack_prob), function(x){
                                       pos_y_U[[x]][, pick_ind[[x]]]
                                     }))
+  pos_y_U_LP <- pos_y_U
+  save(pos_y_U_LP, file = "./RDA/result/pos_y_U_LP.RData")
   save(pred_y_U_stack_sam_LP, file = "./RDA/result/pred_y_U_stack_sam_LP.RData")
 }
+load("./RDA/result/pos_y_U_LP.RData")
 load("./RDA/result/pred_y_U_stack_sam_LP.RData")
 
+stack_prob <- CV_fit_LP$wts[(CV_fit_LP$wts>0.00001)]
+num_counts <- c(rmultinom(n = 1, size = L*10, prob= stack_prob))
+pick_ind <- lapply(1:length(stack_prob), 
+                   function(x){sort(sample.int(L, num_counts[x], 
+                                               replace = TRUE))})
+#save the predictive samples for y
+pred_y_U_stack_sam_LP <- do.call(cbind,
+                                 sapply(1:length(stack_prob), function(x){
+                                   pos_y_U[[x]][, pick_ind[[x]]]
+                                 }))
 
 # Obtain 95% CIs
 y_U_CI_stack_LP <- 
@@ -349,4 +365,11 @@ y_U_CI_stack_LP <-
 sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
 
+#0.8617945 ~86%
+hist(pred_y_U_stack_sam_LP[1,])
+
+# check R^2
+1 - sum((rowMeans(pred_y_U_stack_sam_LP) - log(combined_data_test$AOD))^2)/ 
+  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
+# 0.8658392 ~86%
 
