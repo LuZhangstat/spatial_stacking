@@ -24,7 +24,23 @@ phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31)
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
 # test 2: Empirical method: semivariogram + indep deltasq #
-eff_range <- c(0.05, 0.1, 0.2, 0.3)
+# load("./sim_hoffman2/results/sim1_1.RData")
+# ## Variogram ##
+# library(geoR)
+# library(fields)
+# ### variogram of raw data and residuals ###
+# r = 4
+# coords_train <- raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ]
+# lm_fit <- lm(raw_data[[r]]$y[raw_data[[r]]$ind_mod]~
+#                raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
+# res <- residuals(lm_fit)
+# max.dist=0.8*max(rdist(coords_train))
+# bins=20
+# vario.resid <- variog(coords=coords_train, 
+#                           data=res, 
+#                           uvec=(seq(0.01, max.dist, length=bins)))
+# plot(vario.resid)
+eff_range <- c(0.2, 0.4, 0.6, 0.8)
 phi_ls <- decay_est(eff_range, nu_grid)
 phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
 colnames(phi_nu_ls) = c("phi", "nu")
@@ -32,7 +48,7 @@ colnames(phi_nu_ls) = c("phi", "nu")
 
 # test 3: posterior sample from marginal distribution #
 input_id = 1
-load("./sim_hoffman2/results/sim2_1.RData")
+load("./sim_hoffman2/results/sim1_1.RData")
 
 
 # Simulation #
