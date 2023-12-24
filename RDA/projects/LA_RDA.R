@@ -138,7 +138,7 @@ vario.AOD <- variog(coords=coords_train, data=combined_data_train$logAOD,
                     uvec=(seq(0.5, max.dist, length=bins)))
 plot(vario.AOD)
 max.dist=0.15*max(rdist(coords_train)) #0.1
-bins=45 # 30
+bins=60 # 30
 vario.AOD.resid <- variog(coords=coords_train, 
                           data=AOD_residual2, 
                           uvec=(seq(0.5, max.dist, length=bins)))
@@ -152,7 +152,7 @@ plot(vario.AOD.resid2)
 vfit_wls=variofit(vario.AOD.resid2, 
                   ini.cov.pars=c(0.02, 10), 
                   nugget=0.001, 
-                  fix.nugget=FALSE, fix.kappa = FALSE,
+                  fix.nugget=FALSE, fix.kappa = TRUE, kappa = 0.5,
                   cov.model='matern', 
                   weights='cressie')
 vfit_wls
@@ -168,13 +168,26 @@ library(GPBayes)
 #' delatsq: 0.1, 0.5, 1, 2
 #' 1. kappa = 0.5, effective range 1 -20. phi = 3-60
 
-source("utils2.R") # utils2.R is the testing code #
-eff_range <- c(1, 5, 10, 20)
-nu_grid <- c(0.5, 1.0, 1.5)
-phi_ls <- decay_est(eff_range, nu_grid)
-phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
-colnames(phi_nu_ls) = c("phi", "nu")
+# method 1.
+range(c(1 / Matern.cor.to.range(5, 0.5, cor.target=.05),
+        1 / Matern.cor.to.range(15, 0.5, cor.target=.05),
+        1 / Matern.cor.to.range(15, 1.0, cor.target=.05),
+        1 / Matern.cor.to.range(5, 1.0, cor.target=.05)))
+
+#~0.2 to ~0.8
+phi_grid = c(0.2, 0.4, 0.6, 0.8)
+nu_grid = c(0.5, 1.0)
 deltasq_grid <- c(0.001, 0.01, 0.1, 0.5)
+source("utils2.R")
+
+# # method 2 empirical variogram
+# source("utils2.R") # utils2.R is the testing code #
+# eff_range <- c(1, 5, 10, 20)
+# nu_grid <- c(0.5, 1.0, 1.5)
+# phi_ls <- decay_est(eff_range, nu_grid)
+# phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
+# colnames(phi_nu_ls) = c("phi", "nu")
+# deltasq_grid <- c(0.001, 0.01, 0.1, 0.5)
 
 
 p = 64+2
@@ -182,17 +195,26 @@ priors <- list(mu_beta = rep(0, p),
                inv_V_beta = 1/4 * diag(p),
                a_sigma = 2,
                b_sigma = 0.05)
-K_fold = 3
+K_fold = 10
 seed = 123
 
 run_tag <- FALSE
 if(run_tag){
-  CV_fit_LSE <- sp_stacking_K_fold2(
+  
+  CV_fit_LSE <- sp_stacking_K_fold(
     X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
     y = combined_data_train$logAOD, 
     coords = coords_train,
-    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, priors = priors, 
+    deltasq_grid = deltasq_grid, phi_grid = phi_grid,
+    nu_grid = nu_grid, priors = priors, 
     K_fold = K_fold, seed = seed, label = "LSE")
+  
+  # CV_fit_LSE <- sp_stacking_K_fold2(
+  #   X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+  #   y = combined_data_train$logAOD, 
+  #   coords = coords_train,
+  #   deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, priors = priors, 
+  #   K_fold = K_fold, seed = seed, label = "LSE")
   # let's test the R^2 and coverage 
   CV_fit_LSE$time #4.3 hours
   save(CV_fit_LSE, file = "./RDA/result/CV_fit_LSE.RData")
@@ -288,14 +310,23 @@ y_pred_stack_LSE = y_pred_grid %*% CV_fit_LSE$wts
 
 # stacking with respect to probability #
 if(run_tag){
-  CV_fit_LP <- sp_stacking_K_fold2(
+  
+  CV_fit_LP <- sp_stacking_K_fold(
     X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
     y = combined_data_train$logAOD, 
     coords = coords_train,
-    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, 
-    priors = priors, K_fold = K_fold,
+    deltasq_grid = deltasq_grid, phi_grid = phi_grid,
+    nu_grid = nu_grid, priors = priors, K_fold = K_fold,
     seed = seed, label = "LP", MC = FALSE)
-  save(CV_fit_LP, file = "./RDA/result/CV_fit_LP.RData")
+  
+  # CV_fit_LP <- sp_stacking_K_fold2(
+  #   X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+  #   y = combined_data_train$logAOD, 
+  #   coords = coords_train,
+  #   deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, 
+  #   priors = priors, K_fold = K_fold,
+  #   seed = seed, label = "LP", MC = FALSE)
+  save(CV_fit_LP, file = "./RDA/result/CV_fit_LP1.RData")
 }
 load("./RDA/result/CV_fit_LP.RData")
 
@@ -340,11 +371,11 @@ if(run_tag){
                                       pos_y_U[[x]][, pick_ind[[x]]]
                                     }))
   pos_y_U_LP <- pos_y_U
-  save(pos_y_U_LP, file = "./RDA/result/pos_y_U_LP.RData")
-  save(pred_y_U_stack_sam_LP, file = "./RDA/result/pred_y_U_stack_sam_LP.RData")
+  save(pos_y_U_LP, file = "./RDA/result/pos_y_U_LP1.RData")
+  save(pred_y_U_stack_sam_LP, file = "./RDA/result/pred_y_U_stack_sam_LP1.RData")
 }
-load("./RDA/result/pos_y_U_LP.RData")
-load("./RDA/result/pred_y_U_stack_sam_LP.RData")
+load("./RDA/result/pos_y_U_LP1.RData")
+load("./RDA/result/pred_y_U_stack_sam_LP1.RData")
 
 stack_prob <- CV_fit_LP$wts[(CV_fit_LP$wts>0.00001)]
 num_counts <- c(rmultinom(n = 1, size = L*10, prob= stack_prob))
@@ -371,5 +402,5 @@ hist(pred_y_U_stack_sam_LP[1,])
 # check R^2
 1 - sum((rowMeans(pred_y_U_stack_sam_LP) - log(combined_data_test$AOD))^2)/ 
   sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
-# 0.8658392 ~86%
+# 0.8658392 ~86%.  #can reach 88%
 

@@ -24,22 +24,33 @@ phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31)
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
 # test 2: Empirical method: semivariogram + indep deltasq #
-# load("./sim_hoffman2/results/sim1_1.RData")
-# ## Variogram ##
-# library(geoR)
-# library(fields)
-# ### variogram of raw data and residuals ###
-# r = 4
-# coords_train <- raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ]
-# lm_fit <- lm(raw_data[[r]]$y[raw_data[[r]]$ind_mod]~
-#                raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
-# res <- residuals(lm_fit)
-# max.dist=0.8*max(rdist(coords_train))
-# bins=20
-# vario.resid <- variog(coords=coords_train, 
-#                           data=res, 
-#                           uvec=(seq(0.01, max.dist, length=bins)))
-# plot(vario.resid)
+load("./sim_hoffman2/results/sim1_1.RData")
+## Variogram ##
+library(geoR)
+library(fields)
+### variogram of raw data and residuals ###
+r = 2
+coords_train <- raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ]
+lm_fit <- lm(raw_data[[r]]$y[raw_data[[r]]$ind_mod]~
+               raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
+res <- residuals(lm_fit)
+max.dist=0.6*max(rdist(coords_train))
+bins=20
+vario.resid <- variog(coords=coords_train,
+                          data=res,
+                          uvec=(seq(0.01, max.dist, length=bins)))
+plot(vario.resid)
+vfit_wls=variofit(vario.resid, 
+                  ini.cov.pars=c(1, 0.4), 
+                  nugget=1, 
+                  fix.nugget=FALSE, fix.kappa = FALSE,
+                  cov.model='matern', 
+                  weights='cressie')
+vfit_wls
+plot(vario.resid)
+lines(vfit_wls, col="purple", lwd=1.5)
+
+
 eff_range <- c(0.2, 0.4, 0.6, 0.8)
 phi_ls <- decay_est(eff_range, nu_grid)
 phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
@@ -49,6 +60,67 @@ colnames(phi_nu_ls) = c("phi", "nu")
 # test 3: posterior sample from marginal distribution #
 input_id = 1
 load("./sim_hoffman2/results/sim1_1.RData")
+
+# test 4: INLA #
+## fit INLA ##
+library(INLA)
+r = 8
+df = data.frame(y=c(raw_data[[r]]$y[raw_data[[r]]$ind_mod], rep(NA, 100)), 
+                locx=raw_data[[r]]$coords[, 1], 
+                locy=raw_data[[r]]$coords[, 2], x = raw_data[[r]]$X[, 2])
+summary(df)
+
+fake.locations = matrix(c(0,0,1,1, 0, 1, 1, 0), nrow = 4, byrow = T)
+mesh = inla.mesh.2d(loc = fake.locations, max.edge=c(0.08, 1))
+mesh$n
+
+A = inla.spde.make.A(mesh=mesh, loc=data.matrix(df[ , c('locx', 'locy')]))
+dim(A);
+
+par(mfrow=c(1,1))
+plot(mesh, asp=1)
+points(df[ , c('locx', 'locy')], col='red', lwd=.1)
+
+a <- 3/2
+prior.median.sd = 1; prior.median.range = 1/7
+spde = inla.spde2.pcmatern(mesh, alpha = a,
+                           prior.range = c(prior.median.range, .5), 
+                           prior.sigma = c(prior.median.sd, .5))
+stack = inla.stack(tag='est',
+                   # - Name (nametag) of the stack
+                   # - Here: est for estimating
+                   data=list(y=df$y),
+                   effects=list(
+                     # - The Model Components
+                     s=1:spde$n.spde, 
+                     # - The first is 's' (for spatial)
+                     data.frame(intercept=1, x=df$x)),
+                   # - The second is all fixed effects
+                   A=list(A, 1)
+)
+
+family = "gaussian"
+prior.median.sd.g = 1 # prior median for sigma.epsilon
+control.family = list(hyper = list(prec = list(
+  prior = "pc.prec", param = c(prior.median.sd.g,0.5))))
+
+initial.theta = NULL #c(2.35, 0.79, 0.46)
+
+res = inla(y~x + f(s, model=spde), data=inla.stack.data(stack),
+           family = family,
+           control.family = control.family,
+           control.predictor=list(A = inla.stack.A(stack)),
+           quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+           control.mode = list(restart = T, theta = initial.theta))
+
+summary(res)
+all_prefix_ls <- cbind(
+  1/(exp(res$joint.hyper$`Log precision for the Gaussian observations`)*
+       exp(res$joint.hyper$`log(Stdev) for s`)^2),
+  1/exp(res$joint.hyper$`log(Range) for s`),
+  rep(a - 1, length(res$joint.hyper$`log(Range) for s`)))
+colnames(all_prefix_ls) <- c("delatsq", "phi", "nu")
+all_prefix_ls <- as.data.frame(all_prefix_ls)
 
 
 # Simulation #
@@ -235,6 +307,11 @@ for(r in 1:N_list){ # repeat
   }
   DIV_matrix2[r, "ELPD_stack_LSE_P"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LSE$wts))
   DIV_matrix2[r, "ELPD_stack_LP_P"] = mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts))
+  
+  
+  
+  
+  
 }
 proc.time() - t
 summary(DIV_matrix2)
