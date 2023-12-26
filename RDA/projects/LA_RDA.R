@@ -1,17 +1,21 @@
 rm(list = ls())
-library(reticulate)
+#library(reticulate)
 library(tidyr)
 library(tibble)
 library(dplyr)
 library(ggplot2)
 
 # load raw data
-np <- import("numpy")
-LA_AOD <- np$load("./RDA/LAdemoData/LA_AOD_17000-997-zeroNotValid.npy")
-LA_testmask <- np$load("./RDA/LAdemoData/LA_testmask_4146.npy")
-LA_trainmask <- np$load("./RDA/LAdemoData/LA_trainmask_11857.npy")
-LA_xfea3 <- np$load("./RDA/LAdemoData/LA_xfea3_17000-997.npy")
-LA_xfea64 <- np$load("./RDA/LAdemoData/LA_xfea64_17000-997.npy")
+# np <- import("numpy")
+# LA_AOD <- np$load("./RDA/LAdemoData/LA_AOD_17000-997-zeroNotValid.npy")
+# LA_testmask <- np$load("./RDA/LAdemoData/LA_testmask_4146.npy")
+# LA_trainmask <- np$load("./RDA/LAdemoData/LA_trainmask_11857.npy")
+# LA_xfea3 <- np$load("./RDA/LAdemoData/LA_xfea3_17000-997.npy")
+# LA_xfea64 <- np$load("./RDA/LAdemoData/LA_xfea64_17000-997.npy")
+# save(LA_AOD, LA_testmask, LA_trainmask, LA_xfea3, LA_xfea64, 
+#      file = "./RDA/LAdemoData/RDALA.RData")
+
+load("./RDA/LAdemoData/RDALA.RData")
 
 ## EDA ##
 # transform the data from matrix into a dataframe
