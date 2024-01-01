@@ -1142,4 +1142,38 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
               pred_y_U_stack_sam = pred_y_U_stack_sam))
 }
 
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+hist_compar <- function(draws_ls, type_colors, type_names, test_names,
+                        true_value, yname){
+  # function for comparing posterior distributions
+  type_ls <- rep(1:length(type_names), length(test_names))
+  test_ls <- rep(1:length(test_names), each = length(type_names))
+  
+  axis_limits = range(unlist(draws_ls))
+  n_ls <- sapply(draws_ls, length)
+  param_dt = 
+    data.frame(value = c(unlist(draws_ls)),
+               type = c(sapply(1:length(type_ls), 
+                               f <- function(x){rep(type_ls[x], n_ls[x])})),
+               test = c(sapply(1:length(test_ls), 
+                               f <- function(x){rep(test_ls[x], n_ls[x])})))
+  
+  param_dt$type <- factor(param_dt$type, levels = 1:length(type_names), 
+                          labels = type_names)
+  param_dt$test <- factor(param_dt$test, levels = 1:length(test_names), 
+                          labels = test_names)
+  
+  base_plot = param_dt %>% ggplot(aes(x=value, fill=type)) + 
+    geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity') +
+    scale_fill_manual(values=type_colors) +
+    geom_vline(xintercept=true_value, color = "red")+
+    theme_bw(base_size = 18) + xlim(axis_limits) + xlab(yname) +
+    labs(fill="") + facet_wrap(~ test, nrow = 1) + 
+    theme(legend.position="bottom")
+  
+  return(base_plot)
+}
+
 

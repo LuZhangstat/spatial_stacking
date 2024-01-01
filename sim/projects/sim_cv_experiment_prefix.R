@@ -492,7 +492,7 @@ pos_sam_LSE <-
                       X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
                       coords.mod = coords[ind_mod, ], priors = priors,
                       X.ho = X[-ind_mod, ], 
-                      coords.ho = coords[-ind_mod, ], seed = seed)
+                      coords.ho = coords[-ind_mod, ], seed = 1)
 
 CV_fit_LP <- sp_stacking_K_fold(
   X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
@@ -506,7 +506,7 @@ pos_sam_LP <-
                       X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
                       coords.mod = coords[ind_mod, ], priors = priors,
                       X.ho = X[-ind_mod, ], 
-                      coords.ho = coords[-ind_mod, ], seed = seed))
+                      coords.ho = coords[-ind_mod, ], seed = 2)
 
 # INLA #
 df = data.frame(y=c(raw_data[[r]]$y[raw_data[[r]]$ind_mod], rep(NA, 100)), 
@@ -597,7 +597,7 @@ pos_sam_LSE_I <-
                       X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
                       coords.mod = coords[ind_mod, ], priors = priors,
                       X.ho = X[-ind_mod, ], 
-                      coords.ho = coords[-ind_mod, ], seed = seed)
+                      coords.ho = coords[-ind_mod, ], seed = 3)
 
 CV_fit_LP_I <- sp_stacking_K_fold3(
   X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
@@ -610,21 +610,45 @@ pos_sam_LP_I <-
                       X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
                       coords.mod = coords[ind_mod, ], priors = priors,
                       X.ho = X[-ind_mod, ], 
-                      coords.ho = coords[-ind_mod, ], seed = seed)
+                      coords.ho = coords[-ind_mod, ], seed = 4)
 
-# pick the 50th and 110th point
-hist(pos_sam_LSE$pred_y_U_stack_sam[50, ])
-hist(pos_sam_LP$pred_y_U_stack_sam[50, ])
-
-hist(pred_y_U_stack_sam_LSE[100, ])
+# pick the 50th and 100th point
+hist(pos_sam_LSE_I$sigmasq_sam)
+hist(pos_sam_LP_I$sigmasq_sam)
 hist(sigmasq_sam_LSE)
-
-hist(pred_y_U_stack_sam_LP[50, ])
-hist(pred_y_U_stack_sam_LP[100, ])
 hist(sigmasq_sam_LP)
+pick_indi <- c(50, 100)
+
+draws_ls1 <- c()
+draws_ls1[[1]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[2]] <- pos_sam_LSE_I$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[3]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[4]] <- pos_sam_LP_I$pred_y_U_stack_sam[pick_indi[1], ]
+
+individual_y_compar1 <- 
+  hist_compar(draws_ls = draws_ls1, 
+              type_colors = c("#69b3a2", "#404080"), 
+            type_names = c("Default", "INLA"), 
+            test_names = c("LSE", "LP"), 
+            true_value = y[-ind_mod][pick_indi[1]],
+            yname = "y")
 
 
+draws_ls2 <- c()
+draws_ls2[[1]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[2]] <- pos_sam_LSE_I$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[3]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[4]] <- pos_sam_LP_I$pred_y_U_stack_sam[pick_indi[2], ]
 
+individual_y_compar2 <- 
+  hist_compar(draws_ls = draws_ls2, 
+              type_colors = c("#69b3a2", "#404080"), 
+              type_names = c("Default", "INLA"), 
+              test_names = c("LSE", "LP"))
+
+print(individual_y_compar1)
+
+print(individual_y_compar2)
 
 
 
