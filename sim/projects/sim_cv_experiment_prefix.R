@@ -19,7 +19,7 @@ range(c(1 / Matern.cor.to.range(0.6 * sqrt(2), 0.5, cor.target=.05),
         1 / Matern.cor.to.range(0.6 * sqrt(2), 1.75, cor.target=.05),
         1 / Matern.cor.to.range(0.1 * sqrt(2), 1.75, cor.target=.05)))
 
-deltasq_grid <- c(0.1, 0.5, 1, 2)
+deltasq_grid <- c(0.1, 0.5, 1, 2) # should change to c(0.25, 0.5, 1, 2)
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
@@ -29,7 +29,7 @@ load("./sim_hoffman2/results/sim1_1.RData")
 library(geoR)
 library(fields)
 ### variogram of raw data and residuals ###
-r = 2
+r = 8
 coords_train <- raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ]
 lm_fit <- lm(raw_data[[r]]$y[raw_data[[r]]$ind_mod]~
                raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
@@ -37,8 +37,8 @@ res <- residuals(lm_fit)
 max.dist=0.6*max(rdist(coords_train))
 bins=20
 vario.resid <- variog(coords=coords_train,
-                          data=res,
-                          uvec=(seq(0.01, max.dist, length=bins)))
+                      data=res,
+                      uvec=(seq(0.01, max.dist, length=bins)))
 plot(vario.resid)
 vfit_wls=variofit(vario.resid, 
                   ini.cov.pars=c(1, 0.4), 
@@ -146,19 +146,19 @@ expect_y <- list() # save the weighted prediction
 DIV_matrix2 <- matrix(NA, nrow = N_list, ncol = 18)
 #G: grid; E: empirical; P: posterior
 colnames(DIV_matrix2) <- c("SPE_stack_LSE_E", "SPE_stack_LP_E",
-                          "SPE_stack_LSE_P", "SPE_stack_LP_P",
-                          "SPE_stack_LSE_I", "SPE_stack_LP_I",
-                          "ELPD_stack_LSE_E", "ELPD_stack_LP_E",
-                          "ELPD_stack_LSE_P", "ELPD_stack_LP_P",
-                          "ELPD_stack_LSE_I", "ELPD_stack_LP_I",
-                          "SPE_w_stack_LSE_E", "SPE_w_stack_LP_E",
-                          "SPE_w_stack_LSE_P", "SPE_w_stack_LP_P",
-                          "SPE_w_stack_LSE_I", "SPE_w_stack_LP_I")
+                           "SPE_stack_LSE_P", "SPE_stack_LP_P",
+                           "SPE_stack_LSE_I", "SPE_stack_LP_I",
+                           "ELPD_stack_LSE_E", "ELPD_stack_LP_E",
+                           "ELPD_stack_LSE_P", "ELPD_stack_LP_P",
+                           "ELPD_stack_LSE_I", "ELPD_stack_LP_I",
+                           "SPE_w_stack_LSE_E", "SPE_w_stack_LP_E",
+                           "SPE_w_stack_LSE_P", "SPE_w_stack_LP_P",
+                           "SPE_w_stack_LSE_I", "SPE_w_stack_LP_I")
 rownames(DIV_matrix2) <- paste(samplesize_ls) # check
 run_time2 <- matrix(0, 6, ncol = N_list)
 rownames(run_time2) <- c("Stack_LSE_E", "Stack_LP_E",
-                        "Stack_LSE_P", "Stack_LP_P",
-                        "Stack_LSE_I", "Stack_LP_I")
+                         "Stack_LSE_P", "Stack_LP_P",
+                         "Stack_LSE_I", "Stack_LP_I")
 #MCMC_par <- list() # record the thinned MCMC chains for hyperparameters
 
 t <- proc.time()
@@ -328,19 +328,19 @@ for(r in 1:N_list){ # repeat
   
   a1 <- 3/2
   spde1 = inla.spde2.pcmatern(mesh, alpha = a1,
-                             prior.range = c(prior.median.range, .5), 
-                             prior.sigma = c(prior.median.sd, .5))
+                              prior.range = c(prior.median.range, .5), 
+                              prior.sigma = c(prior.median.sd, .5))
   stack1 = inla.stack(tag='est',
-                     # - Name (nametag) of the stack
-                     # - Here: est for estimating
-                     data=list(y=df$y),
-                     effects=list(
-                       # - The Model Components
-                       s=1:spde1$n.spde, 
-                       # - The first is 's' (for spatial)
-                       data.frame(intercept=1, x=df$x)),
-                     # - The second is all fixed effects
-                     A=list(A, 1)
+                      # - Name (nametag) of the stack
+                      # - Here: est for estimating
+                      data=list(y=df$y),
+                      effects=list(
+                        # - The Model Components
+                        s=1:spde1$n.spde, 
+                        # - The first is 's' (for spatial)
+                        data.frame(intercept=1, x=df$x)),
+                      # - The second is all fixed effects
+                      A=list(A, 1)
   )
   
   family = "gaussian"
@@ -351,39 +351,39 @@ for(r in 1:N_list){ # repeat
   initial.theta = NULL #c(2.35, 0.79, 0.46)
   
   res1 = inla(y~x + f(s, model=spde1), data=inla.stack.data(stack1),
-             family = family,
-             control.family = control.family,
-             control.predictor=list(A = inla.stack.A(stack1)),
-             quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
-             control.mode = list(restart = T, theta = initial.theta))
+              family = family,
+              control.family = control.family,
+              control.predictor=list(A = inla.stack.A(stack1)),
+              quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+              control.mode = list(restart = T, theta = initial.theta))
   
   a2 <- 2
   spde2 = inla.spde2.pcmatern(mesh, alpha = a2,
-                             prior.range = c(prior.median.range, .5), 
-                             prior.sigma = c(prior.median.sd, .5))
+                              prior.range = c(prior.median.range, .5), 
+                              prior.sigma = c(prior.median.sd, .5))
   stack2 = inla.stack(tag='est',
-                     # - Name (nametag) of the stack
-                     # - Here: est for estimating
-                     data=list(y=df$y),
-                     effects=list(
-                       # - The Model Components
-                       s=1:spde2$n.spde, 
-                       # - The first is 's' (for spatial)
-                       data.frame(intercept=1, x=df$x)),
-                     # - The second is all fixed effects
-                     A=list(A, 1)
+                      # - Name (nametag) of the stack
+                      # - Here: est for estimating
+                      data=list(y=df$y),
+                      effects=list(
+                        # - The Model Components
+                        s=1:spde2$n.spde, 
+                        # - The first is 's' (for spatial)
+                        data.frame(intercept=1, x=df$x)),
+                      # - The second is all fixed effects
+                      A=list(A, 1)
   )
   
   res2 = inla(y~x + f(s, model=spde2), data=inla.stack.data(stack2),
-             family = family,
-             control.family = control.family,
-             control.predictor=list(A = inla.stack.A(stack2)),
-             quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
-             control.mode = list(restart = T, theta = initial.theta))
+              family = family,
+              control.family = control.family,
+              control.predictor=list(A = inla.stack.A(stack2)),
+              quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+              control.mode = list(restart = T, theta = initial.theta))
   
   all_prefix_ls <- cbind(
     c(1/(exp(res1$joint.hyper$`Log precision for the Gaussian observations`)*
-         exp(res1$joint.hyper$`log(Stdev) for s`)^2),
+           exp(res1$joint.hyper$`log(Stdev) for s`)^2),
       1/(exp(res2$joint.hyper$`Log precision for the Gaussian observations`)*
            exp(res2$joint.hyper$`log(Stdev) for s`)^2)) ,
     c(1/exp(res1$joint.hyper$`log(Range) for s`), 
@@ -459,79 +459,173 @@ for(r in 1:N_list){ # repeat
 proc.time() - t
 summary(DIV_matrix2)
 
-type = c("stacking LSE E", "stacking LP E", "stacking LSE P", "stacking LP P")
+############################################################
+######## the impact of candidate value for sigma^2 #########
+############################################################
 
-dat_check <- data.frame(N_sample = rep(samplesize_ls, length(type)),
-                        SPE = c(DIV_matrix[, c("SPE_stack_LSE", "SPE_stack_LP", 
-                                               "SPE_M0", "SPE_MCMC")]),
-                        SPE_w = c(DIV_matrix[, c("SPE_w_stack_LSE", 
-                                                 "SPE_w_stack_LP", "SPE_w_M0", 
-                                                 "SPE_w_MCMC")]),
-                        ELPD = c(DIV_matrix[, c("ELPD_stack_LSE", 
-                                                "ELPD_stack_LP", "ELPD_M0", 
-                                                "ELPD_MCMC")]),
-                        label = rep(type, each = N_list))
+# default method #
+deltasq_grid <- c(0.25, 0.5, 1, 2) # c(0.1, 0.5, 1, 2)
+phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
+nu_grid = c(0.5, 1, 1.5, 1.75)
 
-p_SPE <- ggplot(dat_check) +
-  geom_line(aes(N_sample, SPE, group = label,
-                color = label)) +theme_bw()
-p_SPE
-
-p_SPE_w <- ggplot(dat_check) +
-  geom_line(aes(N_sample, SPE_w, group = label,
-                color = label))+theme_bw()
-p_SPE_w 
-p_ELPD <- ggplot(dat_check) +
-  geom_line(aes(N_sample, ELPD, group = label,
-                color = label))+theme_bw()
-p_ELPD
-
-p_summary <- grid.arrange(p_SPE,  p_SPE_w, p_ELPD,
-                          ncol = 1, nrow = 3)
-ggsave("./sim/pics/CVexperiment_lit.png", plot = p_summary, 
-       width = 6, height = 4, units = "in")
-save(dat_check, samplesize_ls, weights_M_LSE,
-     weights_M_LP, file = "./sim/results/CVexperiment_lit.Rdata")
-#load("./sim/results/CVexperiment_lit.Rdata")
-weight_stack <- 
-  data.frame(weights = c(weights_M_LSE), 
-             model = c(rep(paste0("deltasq:", 
-                                  round(CV_fit_LSE$grid_all[, 1], digits = 3), 
-                                  " phi: ",
-                                  round(CV_fit_LSE$grid_all[, 2], digits = 3)),
-                           N_list)))
-
-p1 <- ggplot(data = weight_stack, aes(x = weights)) + 
-  geom_histogram() + facet_wrap(~model)
-p1
-
-summary(colSums(weights_M_LSE))
-
-expect_w_phi <- matrix(0, nrow = length(phi_grid), ncol = N_list)
-for(i in 1:length(phi_grid)){
-  expect_w_phi[i, ] <- colSums(weights_M_LSE[which(CV_fit_LSE$grid_all$phi == phi_grid[i]), ])
-}
-summary(c(t(expect_w_phi) %*%phi_grid))
-hist(t(expect_w_phi) %*%phi_grid )
-plot(phi_grid, rowMeans(expect_w_phi))
-
-expect_w_deltasq <- matrix(0, nrow = length(deltasq_grid), ncol = N_list)
-for(i in 1:length(deltasq_grid)){
-  expect_w_deltasq[i, ] <- 
-    colSums(weights_M[which(CV_fit_LSE$grid_all$deltasq == deltasq_grid[i]),])
-}
-summary(c(t(expect_w_deltasq) %*% deltasq_grid))
-# Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-# 0.1000  0.5164  0.7113  0.8436  1.0581  2.0000
-hist(t(expect_w_deltasq) %*% deltasq_grid)
-plot(deltasq_grid, rowMeans(expect_w_deltasq))
-
-p1 <- mcmc_trace(fit_mcmc$draws("lp__")) 
-print(p1)
+r = 4
+ind_mod = raw_data[[r]]$ind_mod
+X <- raw_data[[r]]$X
+y <- raw_data[[r]]$y
+w <- raw_data[[r]]$w
+coords <- raw_data[[r]]$coords
+N <- samplesize_ls[r]
+N_ho <- N - length(raw_data[[r]]$ind_mod)
 
 
-save(dat_check, samplesize_ls, weights_M_LSE,
-     weights_M_LP, file = "./sim/results/CVexperiment_lit.Rdata")
+CV_fit_LSE <- sp_stacking_K_fold(
+  X = X[ind_mod, ], y = y[ind_mod], 
+  coords = coords[ind_mod, ],
+  deltasq_grid = deltasq_grid, phi_grid = phi_grid,
+  nu_grid = nu_grid, priors = priors, 
+  K_fold = K_fold, seed = seed, label = "LSE")
+weights_M_LSE[, r] <- CV_fit_LSE$wts
+run_time2["Stack_LSE_E", r] <- CV_fit_LSE$time[3]
+
+pos_sam_LSE <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LSE, L1 = 300, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = seed)
+
+CV_fit_LP <- sp_stacking_K_fold(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  deltasq_grid = deltasq_grid, phi_grid = phi_grid, 
+  nu_grid = nu_grid,
+  priors = priors, K_fold = K_fold,
+  seed = seed, label = "LP", MC = FALSE)
+
+pos_sam_LP <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LP, L1 = 300, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = seed))
+
+# INLA #
+df = data.frame(y=c(raw_data[[r]]$y[raw_data[[r]]$ind_mod], rep(NA, 100)), 
+                locx=raw_data[[r]]$coords[, 1], 
+                locy=raw_data[[r]]$coords[, 2], x = raw_data[[r]]$X[, 2])
+fake.locations = matrix(c(0,0,1,1, 0, 1, 1, 0), nrow = 4, byrow = T)
+n <- length(raw_data[[r]]$coords[, 1]) - 100
+mesh = inla.mesh.2d(loc = fake.locations, max.edge=c(2/sqrt(n), 10/sqrt(n)))
+mesh$n
+
+A = inla.spde.make.A(mesh=mesh, loc=data.matrix(df[ , c('locx', 'locy')]))
+prior.median.sd = 1; prior.median.range = 1/raw_data[[r]]$phi
+
+a1 <- 3/2
+spde1 = inla.spde2.pcmatern(mesh, alpha = a1,
+                            prior.range = c(prior.median.range, .5), 
+                            prior.sigma = c(prior.median.sd, .5))
+stack1 = inla.stack(tag='est',
+                    # - Name (nametag) of the stack
+                    # - Here: est for estimating
+                    data=list(y=df$y),
+                    effects=list(
+                      # - The Model Components
+                      s=1:spde1$n.spde, 
+                      # - The first is 's' (for spatial)
+                      data.frame(intercept=1, x=df$x)),
+                    # - The second is all fixed effects
+                    A=list(A, 1)
+)
+
+family = "gaussian"
+prior.median.sd.g = 1 # prior median for sigma.epsilon
+control.family = list(hyper = list(prec = list(
+  prior = "pc.prec", param = c(prior.median.sd.g,0.5))))
+
+initial.theta = NULL #c(2.35, 0.79, 0.46)
+
+res1 = inla(y~x + f(s, model=spde1), data=inla.stack.data(stack1),
+            family = family,
+            control.family = control.family,
+            control.predictor=list(A = inla.stack.A(stack1)),
+            quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+            control.mode = list(restart = T, theta = initial.theta))
+
+a2 <- 2
+spde2 = inla.spde2.pcmatern(mesh, alpha = a2,
+                            prior.range = c(prior.median.range, .5), 
+                            prior.sigma = c(prior.median.sd, .5))
+stack2 = inla.stack(tag='est',
+                    # - Name (nametag) of the stack
+                    # - Here: est for estimating
+                    data=list(y=df$y),
+                    effects=list(
+                      # - The Model Components
+                      s=1:spde2$n.spde, 
+                      # - The first is 's' (for spatial)
+                      data.frame(intercept=1, x=df$x)),
+                    # - The second is all fixed effects
+                    A=list(A, 1)
+)
+
+res2 = inla(y~x + f(s, model=spde2), data=inla.stack.data(stack2),
+            family = family,
+            control.family = control.family,
+            control.predictor=list(A = inla.stack.A(stack2)),
+            quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+            control.mode = list(restart = T, theta = initial.theta))
+
+all_prefix_ls <- cbind(
+  c(1/(exp(res1$joint.hyper$`Log precision for the Gaussian observations`)*
+         exp(res1$joint.hyper$`log(Stdev) for s`)^2),
+    1/(exp(res2$joint.hyper$`Log precision for the Gaussian observations`)*
+         exp(res2$joint.hyper$`log(Stdev) for s`)^2)) ,
+  c(1/exp(res1$joint.hyper$`log(Range) for s`), 
+    1/exp(res2$joint.hyper$`log(Range) for s`)),
+  c(rep(a1 - 1, length(res1$joint.hyper$`log(Range) for s`)), 
+    rep(a2 - 1, length(res2$joint.hyper$`log(Range) for s`))))
+colnames(all_prefix_ls) <- c("delatsq", "phi", "nu")
+all_prefix_ls <- as.data.frame(all_prefix_ls)
+
+CV_fit_LSE_I <- sp_stacking_K_fold3(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  all_prefix_ls = all_prefix_ls, priors = priors, 
+  K_fold = K_fold, seed = seed, label = "LSE")
+
+pos_sam_LSE_I <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LSE_I, L1 = 300, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = seed)
+
+CV_fit_LP_I <- sp_stacking_K_fold3(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  all_prefix_ls = all_prefix_ls, 
+  priors = priors, K_fold = K_fold,
+  seed = seed, label = "LP", MC = FALSE)
+
+pos_sam_LP_I <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LP_I, L1 = 300, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = seed)
+
+# pick the 50th and 110th point
+hist(pos_sam_LSE$pred_y_U_stack_sam[50, ])
+hist(pos_sam_LP$pred_y_U_stack_sam[50, ])
+
+hist(pred_y_U_stack_sam_LSE[100, ])
+hist(sigmasq_sam_LSE)
+
+hist(pred_y_U_stack_sam_LP[50, ])
+hist(pred_y_U_stack_sam_LP[100, ])
+hist(sigmasq_sam_LP)
+
+
+
+
 
 
 # save(weights_M_LSE, weights_M_LP, raw_data, expect_w, expect_y, DIV_matrix,

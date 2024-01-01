@@ -1087,3 +1087,59 @@ decay_est <-  function(eff_r_ls, nu_ls){
   }
   return(decay_ls)
 }
+
+
+
+stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900, 
+                                X.mod, y.mod, coords.mod, priors,
+                                X.ho, coords.ho, seed = 123){
+  # L1 sample for each candidate model
+  # L2 sample size of the returned posterior
+  set.seed(seed)
+  t <- proc.time()
+  j = 1
+  pick_mods <- Stack_fit$grid_all[(Stack_fit$wts>0.00001), ]
+  pos_y_U <- c()
+  pos_w_U <- c()
+  pos_sigmasq <- c()
+  cat("No. of models:", length(pick_mods$deltasq), "\n")
+  
+  for (j in 1:length(pick_mods$deltasq)){
+    cat(j, "\t")
+    t1 <- proc.time()
+    pred_pos_sam <- 
+      Conj_pos_sam(X.mod = X.mod, y.mod = y.mod,
+                   coords.mod = coords.mod,
+                   deltasq_pick = pick_mods$deltasq[j],
+                   phi_pick = pick_mods$phi[j], 
+                   nu_pick = pick_mods$nu[j], priors = priors,
+                   X.ho = X.ho, 
+                   coords.ho = coords.ho,
+                   L = L1)
+    pos_y_U[[j]] <- pred_pos_sam$y_U_expect
+    pos_sigmasq[[j]] <- pred_pos_sam$sigma.sq.sam
+    cat("use time: ", (proc.time() - t1)[3], "\n")
+  }
+  proc.time() - t
+  stack_prob <- Stack_fit$wts[(Stack_fit$wts>0.00001)]
+  num_counts <- c(rmultinom(n = 1, size = L2, prob= stack_prob))
+  pick_ind <- lapply(1:length(stack_prob), 
+                     function(x){sort(sample.int(L, num_counts[x], 
+                                                 replace = TRUE))})
+  #save the predictive samples for y
+  if(length(pick_mods$deltasq) == 1){
+    pred_y_U_stack_sam <- pos_y_U[[1]][, pick_ind[[1]]]
+  }else{
+    pred_y_U_stack_sam <- do.call(cbind,
+                                  sapply(1:length(stack_prob), function(x){
+                                    pos_y_U[[x]][, pick_ind[[x]]]
+                                  }))
+  }
+  sigmasq_sam <- unlist(sapply(1:length(stack_prob), function(x){
+    pos_sigmasq[[x]][pick_ind[[x]]]
+  }))
+  return(list(sigmasq_sam = sigmasq_sam, 
+              pred_y_U_stack_sam = pred_y_U_stack_sam))
+}
+
+
