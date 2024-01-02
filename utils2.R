@@ -1146,7 +1146,7 @@ library(ggplot2)
 library(gridExtra)
 library(ggpubr)
 hist_compar <- function(draws_ls, type_colors, type_names, test_names,
-                        true_value, yname){
+                        true_value, yname, bins = 30){
   # function for comparing posterior distributions
   type_ls <- rep(1:length(type_names), length(test_names))
   test_ls <- rep(1:length(test_names), each = length(type_names))
@@ -1165,8 +1165,11 @@ hist_compar <- function(draws_ls, type_colors, type_names, test_names,
   param_dt$test <- factor(param_dt$test, levels = 1:length(test_names), 
                           labels = test_names)
   
-  base_plot = param_dt %>% ggplot(aes(x=value, fill=type)) + 
-    geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity') +
+  base_plot = param_dt %>% 
+    ggplot(aes(x=value, fill=type, y=after_stat(density))) + 
+    # geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity',
+    #                bins = bins) + 
+    geom_density(alpha=0.6) +
     scale_fill_manual(values=type_colors) +
     geom_vline(xintercept=true_value, color = "red")+
     theme_bw(base_size = 18) + xlim(axis_limits) + xlab(yname) +
@@ -1176,4 +1179,42 @@ hist_compar <- function(draws_ls, type_colors, type_names, test_names,
   return(base_plot)
 }
 
+
+recover_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod, 
+                         X.ho, y.ho, coords.ho){
+  t0 <- proc.time()
+  N.mod = nrow(coords.mod)
+  N.ho = nrow(coords.ho)
+  N.all = N.mod + N.ho
+  n.sam = nrow(theta.recover)
+  dist.M = as.matrix(dist(rbind(coords.mod, coords.ho)))
+  w.recover.sample <- sapply(1:n.sam, f <- function(ind){
+    diag_ele = c(rep(1 / theta.recover[ind, "tau.sq"], N.mod), rep(0, N.ho))
+    Chol_Cov_w <- chol2inv(chol(
+      geoR::matern(dist.M, phi = 1 / theta.recover[ind, "phi"], 
+                   kappa = theta.recover[ind, "nu"]))) / 
+      theta.recover[ind, "sigma.sq"] 
+    
+    diag(Chol_Cov_w)  =  diag(Chol_Cov_w) + diag_ele
+    Chol_Cov_w <- chol(Chol_Cov_w)
+    u = c((y.mod - X.mod %*% beta.recover[ind, ])/theta.recover[ind, "tau.sq"], 
+          rep(0, N.ho))
+    u <- forwardsolve(Chol_Cov_w, u, upper.tri = TRUE, transpose = TRUE)
+    v = rnorm(N.all)
+    u <- backsolve(Chol_Cov_w, u + v, upper.tri = TRUE, transpose = FALSE)
+    return(u)
+  })
+  
+  y.ho.pred.sample <- tcrossprod(X.ho, beta.recover) + 
+    w.recover.sample[(N.mod+1):N.all, ] 
+  
+  y.ho.sample <- y.ho.pred.sample + 
+    matrix(rnorm(N.ho * n.sam), nrow = N.ho) %*% 
+    diag(sqrt(theta.recover[, "tau.sq"]))
+  
+  t1 <- proc.time() - t0
+  return(list(w.recover.sample = w.recover.sample,
+              y.ho.sample = y.ho.sample,
+              time = t1))
+}
 

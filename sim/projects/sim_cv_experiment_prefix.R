@@ -462,13 +462,14 @@ summary(DIV_matrix2)
 ############################################################
 ######## the impact of candidate value for sigma^2 #########
 ############################################################
-
+load("./sim_hoffman2/results/sim1_1.RData")
 # default method #
-deltasq_grid <- c(0.25, 0.5, 1, 2) # c(0.1, 0.5, 1, 2)
+sim_ind = 1
+deltasq_grid <- c(0.1, 0.5, 1, 2) # c(0.1, 0.5, 1, 2)
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
-r = 4
+r = 8 # r = 2,8 for sim1 r = 4 for sim2
 ind_mod = raw_data[[r]]$ind_mod
 X <- raw_data[[r]]$X
 y <- raw_data[[r]]$y
@@ -486,6 +487,8 @@ CV_fit_LSE <- sp_stacking_K_fold(
   K_fold = K_fold, seed = seed, label = "LSE")
 weights_M_LSE[, r] <- CV_fit_LSE$wts
 run_time2["Stack_LSE_E", r] <- CV_fit_LSE$time[3]
+cbind(CV_fit_LSE$grid_all[CV_fit_LSE$wts>0.00001, ], 
+      CV_fit_LSE$wts[CV_fit_LSE$wts>0.00001])
 
 pos_sam_LSE <- 
   stacking_pos_sample(Stack_fit = CV_fit_LSE, L1 = 300, L2 = 900, 
@@ -500,6 +503,8 @@ CV_fit_LP <- sp_stacking_K_fold(
   nu_grid = nu_grid,
   priors = priors, K_fold = K_fold,
   seed = seed, label = "LP", MC = FALSE)
+cbind(CV_fit_LP$grid_all[CV_fit_LP$wts>0.00001, ], 
+      CV_fit_LP$wts[CV_fit_LP$wts>0.00001])
 
 pos_sam_LP <- 
   stacking_pos_sample(Stack_fit = CV_fit_LP, L1 = 300, L2 = 900, 
@@ -591,6 +596,8 @@ CV_fit_LSE_I <- sp_stacking_K_fold3(
   X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
   all_prefix_ls = all_prefix_ls, priors = priors, 
   K_fold = K_fold, seed = seed, label = "LSE")
+cbind(CV_fit_LSE_I$grid_all[CV_fit_LSE_I$wts>0.00001, ], 
+      CV_fit_LSE_I$wts[CV_fit_LSE_I$wts>0.00001])
 
 pos_sam_LSE_I <- 
   stacking_pos_sample(Stack_fit = CV_fit_LSE_I, L1 = 300, L2 = 900, 
@@ -604,6 +611,8 @@ CV_fit_LP_I <- sp_stacking_K_fold3(
   all_prefix_ls = all_prefix_ls, 
   priors = priors, K_fold = K_fold,
   seed = seed, label = "LP", MC = FALSE)
+cbind(CV_fit_LP_I$grid_all[CV_fit_LP_I$wts>0.00001, ], 
+      CV_fit_LP_I$wts[CV_fit_LP_I$wts>0.00001])
 
 pos_sam_LP_I <- 
   stacking_pos_sample(Stack_fit = CV_fit_LP_I, L1 = 300, L2 = 900, 
@@ -612,43 +621,153 @@ pos_sam_LP_I <-
                       X.ho = X[-ind_mod, ], 
                       coords.ho = coords[-ind_mod, ], seed = 4)
 
-# pick the 50th and 100th point
-hist(pos_sam_LSE_I$sigmasq_sam)
-hist(pos_sam_LP_I$sigmasq_sam)
-hist(sigmasq_sam_LSE)
-hist(sigmasq_sam_LP)
-pick_indi <- c(50, 100)
+# test 3: posterior sample from marginal distribution #
+pick_ind <- seq(300, 1000, by = 11)
+all_prefix_ls <- cbind(MCMC_par[[r]][pick_ind, "tau.sq"] / 
+                         MCMC_par[[r]][pick_ind, "sigma.sq"],
+                       MCMC_par[[r]][pick_ind, c("phi", "nu")]) 
+colnames(all_prefix_ls) <- c("delatsq", "phi", "nu")
+all_prefix_ls <- as.data.frame(all_prefix_ls)
 
+CV_fit_LSE_P <- sp_stacking_K_fold3(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  all_prefix_ls = all_prefix_ls, priors = priors, 
+  K_fold = K_fold, seed = seed, label = "LSE")
+cbind(CV_fit_LSE_P$grid_all[CV_fit_LSE_P$wts>0.00001, ], 
+      CV_fit_LSE_P$wts[CV_fit_LSE_P$wts>0.00001])
+
+pos_sam_LSE_P <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LSE_P, L1 = 300, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = 5)
+
+CV_fit_LP_P <- sp_stacking_K_fold3(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  all_prefix_ls = all_prefix_ls, 
+  priors = priors, K_fold = K_fold,
+  seed = seed, label = "LP", MC = FALSE)
+cbind(CV_fit_LP_P$grid_all[CV_fit_LP_P$wts>0.00001, ], 
+      CV_fit_LP_P$wts[CV_fit_LP_P$wts>0.00001])
+
+pos_sam_LP_P <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LP_P, L1 = 300, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = 6)
+
+# compare sigmasq #
+draws_ls_sigmasq <- c()
+draws_ls_sigmasq[[1]] <- MCMC_par[[r]][101:1000, "sigma.sq"]
+draws_ls_sigmasq[[2]] <- pos_sam_LSE$sigmasq_sam
+draws_ls_sigmasq[[3]] <- pos_sam_LSE_I$sigmasq_sam
+draws_ls_sigmasq[[4]] <- pos_sam_LSE_P$sigmasq_sam
+draws_ls_sigmasq[[5]] <- MCMC_par[[r]][101:1000, "sigma.sq"]
+draws_ls_sigmasq[[6]] <- pos_sam_LP$sigmasq_sam
+draws_ls_sigmasq[[7]] <- pos_sam_LP_I$sigmasq_sam
+draws_ls_sigmasq[[8]] <- pos_sam_LP_P$sigmasq_sam
+#cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+sigmasq_compar <- 
+  hist_compar(draws_ls = draws_ls_sigmasq, 
+              type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"),  #"#56B4E9",
+              type_names = c("posterior", "default", "INLA", "MCMC"), 
+              test_names = c("LSE", "LP"), 
+              true_value = raw_data[[r]]$sigma.sq,
+              yname = "sigmasq", bins = 45)
+
+sigmasq_compar
+# ggsave(paste0("./sim/pics/sigmasq_prefix_compar", sim_ind, ".png"),
+#        plot = sigmasq_compar,
+#        width = 6.5, height = 3.5, units = "in", dpi = 600)
+
+
+# check histograms for individuals (pick the 50th and 100th point)#
+### fit with spBayes ###
+fit_flag <- FALSE
+if(fit_flag){
+  n.samples <- 20000
+  starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
+  tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
+  priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
+                   "phi.Unif"=c(3, 36), "sigma.sq.IG"=c(2, 2),
+                   "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
+  cov.model <- "matern"
+  n.report <- 5000
+  verbose <- TRUE
+  m.1 <- spLM(y[ind_mod]~X[ind_mod, ]-1, coords=coords[ind_mod, ],
+              starting=starting,
+              tuning=tuning, priors=priors.1, cov.model=cov.model,
+              n.samples=n.samples, verbose=verbose, n.report=n.report)
+  
+  ## recover beta ##
+  t0 <- proc.time()
+  r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
+                   n.report =  500)
+  t1 <- proc.time() - t0
+  
+  ## recover posterior samples for y and w ##
+  pos_wy <- recover_MCMC(theta.recover = r.1$p.theta.recover.samples,
+                         beta.recover = r.1$p.beta.recover.samples,
+                         y.mod = y[ind_mod], X.mod = X[ind_mod, ],
+                         coords.mod = coords[ind_mod, ],
+                         X.ho = X[-ind_mod, ], y.ho = y[-ind_mod],
+                         coords.ho = coords[-ind_mod, ])
+  save(m.1, r.1, pos_wy, 
+       file = paste0("./sim/results/indi_compar", sim_ind, "r8.Rdata"))
+}else{
+  load(paste0("./sim/results/indi_compar", sim_ind, ".Rdata"))
+}
+
+# check y #
+pick_indi <- c(50, 90)
 draws_ls1 <- c()
-draws_ls1[[1]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[1], ]
-draws_ls1[[2]] <- pos_sam_LSE_I$pred_y_U_stack_sam[pick_indi[1], ]
-draws_ls1[[3]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[1], ]
-draws_ls1[[4]] <- pos_sam_LP_I$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[1]] <- pos_wy$y.ho.sample[pick_indi[1], 101:1000]
+draws_ls1[[2]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[3]] <- pos_sam_LSE_I$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[4]] <- pos_sam_LSE_P$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[5]] <- pos_wy$y.ho.sample[pick_indi[1], 101:1000]
+draws_ls1[[6]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[7]] <- pos_sam_LP_I$pred_y_U_stack_sam[pick_indi[1], ]
+draws_ls1[[8]] <- pos_sam_LP_P$pred_y_U_stack_sam[pick_indi[1], ]
 
 individual_y_compar1 <- 
   hist_compar(draws_ls = draws_ls1, 
-              type_colors = c("#69b3a2", "#404080"), 
-            type_names = c("Default", "INLA"), 
-            test_names = c("LSE", "LP"), 
-            true_value = y[-ind_mod][pick_indi[1]],
-            yname = "y")
-
+              type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"), 
+              type_names = c("posterior", "default", "INLA", "MCMC"), 
+              test_names = c("LSE", "LP"), 
+              true_value = y[-ind_mod][pick_indi[1]],
+              yname = "y")
 
 draws_ls2 <- c()
-draws_ls2[[1]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[2], ]
-draws_ls2[[2]] <- pos_sam_LSE_I$pred_y_U_stack_sam[pick_indi[2], ]
-draws_ls2[[3]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[2], ]
-draws_ls2[[4]] <- pos_sam_LP_I$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[1]] <- pos_wy$y.ho.sample[pick_indi[2], 101:1000]
+draws_ls2[[2]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[3]] <- pos_sam_LSE_I$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[4]] <- pos_sam_LSE_P$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[5]] <- pos_wy$y.ho.sample[pick_indi[2], 101:1000]
+draws_ls2[[6]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[7]] <- pos_sam_LP_I$pred_y_U_stack_sam[pick_indi[2], ]
+draws_ls2[[8]] <- pos_sam_LP_P$pred_y_U_stack_sam[pick_indi[2], ]
 
 individual_y_compar2 <- 
   hist_compar(draws_ls = draws_ls2, 
-              type_colors = c("#69b3a2", "#404080"), 
-              type_names = c("Default", "INLA"), 
-              test_names = c("LSE", "LP"))
+              type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"), 
+              type_names = c("posterior", "default", "INLA", "MCMC"), 
+              test_names = c("LSE", "LP"), 
+              true_value = y[-ind_mod][pick_indi[2]],
+              yname = "y")
 
 print(individual_y_compar1)
-
 print(individual_y_compar2)
+ggsave(paste0("./sim/pics/indi50_prefix_compar", sim_ind, "r8.png"),
+       plot = individual_y_compar1,
+       width = 6.5, height = 3.5, units = "in", dpi = 600)
+ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "r8.png"),
+       plot = individual_y_compar2,
+       width = 6.5, height = 3.5, units = "in", dpi = 600)
+
+# check w #
 
 
 
