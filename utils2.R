@@ -1146,7 +1146,7 @@ library(ggplot2)
 library(gridExtra)
 library(ggpubr)
 hist_compar <- function(draws_ls, type_colors, type_names, test_names,
-                        true_value, yname, bins = 30){
+                        true_value, yname, bins = 30, INLA_CI = NULL){
   # function for comparing posterior distributions
   type_ls <- rep(1:length(type_names), length(test_names))
   test_ls <- rep(1:length(test_names), each = length(type_names))
@@ -1165,16 +1165,28 @@ hist_compar <- function(draws_ls, type_colors, type_names, test_names,
   param_dt$test <- factor(param_dt$test, levels = 1:length(test_names), 
                           labels = test_names)
   
-  base_plot = param_dt %>% 
-    ggplot(aes(x=value, fill=type, y=after_stat(density))) + 
-    # geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity',
-    #                bins = bins) + 
-    geom_density(alpha=0.6) +
-    scale_fill_manual(values=type_colors) +
-    geom_vline(xintercept=true_value, color = "red")+
-    theme_bw(base_size = 18) + xlim(axis_limits) + xlab(yname) +
-    labs(fill="") + facet_wrap(~ test, nrow = 1) + 
-    theme(legend.position="bottom")
+  if(is.null(INLA_CI)){
+    base_plot = param_dt %>% 
+      ggplot(aes(x=value, fill=type, y=after_stat(density))) + 
+      # geom_histogram(color="#e9ecef", alpha=0.6, position = 'identity',
+      #                bins = bins) + 
+      geom_density(alpha=0.6) +
+      scale_fill_manual(values=type_colors) +
+      geom_vline(xintercept=true_value, color = "red")+
+      theme_bw(base_size = 18) + xlim(axis_limits) + xlab(yname) +
+      labs(fill="") + facet_wrap(~ test, nrow = 1) + 
+      theme(legend.position="bottom")
+  }else{
+    base_plot = param_dt %>% 
+      ggplot(aes(x=value, fill=type, y=after_stat(density))) + 
+      geom_density(alpha=0.6) +
+      scale_fill_manual(values=type_colors) +
+      geom_vline(xintercept=true_value, color = "red")+
+      geom_vline(xintercept=INLA_CI, color = "blue", linetype="dashed")+
+      theme_bw(base_size = 18) + xlim(axis_limits) + xlab(yname) +
+      labs(fill="") + facet_wrap(~ test, nrow = 1) + 
+      theme(legend.position="bottom")
+  }
   
   return(base_plot)
 }

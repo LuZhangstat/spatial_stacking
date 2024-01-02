@@ -462,14 +462,14 @@ summary(DIV_matrix2)
 ############################################################
 ######## the impact of candidate value for sigma^2 #########
 ############################################################
-load("./sim_hoffman2/results/sim1_1.RData")
+load("./sim_hoffman2/results/sim2_1.RData")
 # default method #
-sim_ind = 1
+sim_ind = 2
 deltasq_grid <- c(0.1, 0.5, 1, 2) # c(0.1, 0.5, 1, 2)
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
-r = 8 # r = 2,8 for sim1 r = 4 for sim2
+r = 4 # r = 2,8 for sim1 r = 4 for sim2
 ind_mod = raw_data[[r]]$ind_mod
 X <- raw_data[[r]]$X
 y <- raw_data[[r]]$y
@@ -556,6 +556,14 @@ res1 = inla(y~x + f(s, model=spde1), data=inla.stack.data(stack1),
             quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
             control.mode = list(restart = T, theta = initial.theta))
 
+sum((res1$summary.fitted.values[
+  inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod], 
+  "0.01quant"] < y[-raw_data[[r]]$ind_mod]) & 
+      (res1$summary.fitted.values[
+        inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod], 
+        "0.99quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
+# 0.55 for sim1 r = 8 0.66 for sim2 r = 4
+
 a2 <- 2
 spde2 = inla.spde2.pcmatern(mesh, alpha = a2,
                             prior.range = c(prior.median.range, .5), 
@@ -579,7 +587,13 @@ res2 = inla(y~x + f(s, model=spde2), data=inla.stack.data(stack2),
             control.predictor=list(A = inla.stack.A(stack2)),
             quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
             control.mode = list(restart = T, theta = initial.theta))
-
+sum((res2$summary.fitted.values[
+  inla.stack.index(stack2, "est")$data[-raw_data[[r]]$ind_mod], 
+  "0.01quant"] < y[-raw_data[[r]]$ind_mod]) & 
+    (res2$summary.fitted.values[
+      inla.stack.index(stack2, "est")$data[-raw_data[[r]]$ind_mod], 
+      "0.99quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
+# 0.55 for sim1 r = 8 0.66 for sim2 r = 4
 all_prefix_ls <- cbind(
   c(1/(exp(res1$joint.hyper$`Log precision for the Gaussian observations`)*
          exp(res1$joint.hyper$`log(Stdev) for s`)^2),
@@ -606,6 +620,7 @@ pos_sam_LSE_I <-
                       X.ho = X[-ind_mod, ], 
                       coords.ho = coords[-ind_mod, ], seed = 3)
 
+
 CV_fit_LP_I <- sp_stacking_K_fold3(
   X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
   all_prefix_ls = all_prefix_ls, 
@@ -620,6 +635,16 @@ pos_sam_LP_I <-
                       coords.mod = coords[ind_mod, ], priors = priors,
                       X.ho = X[-ind_mod, ], 
                       coords.ho = coords[-ind_mod, ], seed = 4)
+
+pos_y_LP_I_CI <- 
+  apply(pos_sam_LP_I$pred_y_U_stack_sam, 1, 
+        function(x){quantile(x, probs = c(0.025, 0.975))})
+
+sum((pos_y_LP_I_CI[1, ] < y[-ind_mod]) & 
+      (pos_y_LP_I_CI[2, ] > y[-ind_mod]))/100
+
+# 0.96 for sim1 r = 8 and 0.86 for sim2 r = 4 
+# I tested several example and CI coverage improved with Stacking
 
 # test 3: posterior sample from marginal distribution #
 pick_ind <- seq(300, 1000, by = 11)
@@ -672,7 +697,8 @@ draws_ls_sigmasq[[8]] <- pos_sam_LP_P$sigmasq_sam
 sigmasq_compar <- 
   hist_compar(draws_ls = draws_ls_sigmasq, 
               type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"),  #"#56B4E9",
-              type_names = c("posterior", "default", "INLA", "MCMC"), 
+              type_names = c("posterior", "default", "INLA+stacking", 
+                             "MCMC+stacking"), 
               test_names = c("LSE", "LP"), 
               true_value = raw_data[[r]]$sigma.sq,
               yname = "sigmasq", bins = 45)
@@ -735,11 +761,22 @@ draws_ls1[[8]] <- pos_sam_LP_P$pred_y_U_stack_sam[pick_indi[1], ]
 individual_y_compar1 <- 
   hist_compar(draws_ls = draws_ls1, 
               type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"), 
-              type_names = c("posterior", "default", "INLA", "MCMC"), 
+              type_names = c("posterior", "default", "INLA+Stacking", 
+                             "MCMC+Stacking"), 
               test_names = c("LSE", "LP"), 
               true_value = y[-ind_mod][pick_indi[1]],
-              yname = "y")
+              yname = "y",
+              INLA_CI = c(unlist(res1$summary.fitted.values[
+                inla.stack.index(stack1, "est")$
+                  data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
+                c("0.01quant", "0.99quant")]))
+              # INLA_CI = c(unlist(res2$summary.fitted.values[
+              #   inla.stack.index(stack2, "est")$
+              #     data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
+              #   c("0.01quant", "0.99quant")]))
+              )
 
+res2$summary.fitted.values[r*100+pick_indi[2], c("0.01quant", "0.99quant")]
 draws_ls2 <- c()
 draws_ls2[[1]] <- pos_wy$y.ho.sample[pick_indi[2], 101:1000]
 draws_ls2[[2]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[2], ]
@@ -753,330 +790,31 @@ draws_ls2[[8]] <- pos_sam_LP_P$pred_y_U_stack_sam[pick_indi[2], ]
 individual_y_compar2 <- 
   hist_compar(draws_ls = draws_ls2, 
               type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"), 
-              type_names = c("posterior", "default", "INLA", "MCMC"), 
+              type_names = c("posterior", "default", "INLA+stacking", 
+                             "MCMC+stacking"), 
               test_names = c("LSE", "LP"), 
               true_value = y[-ind_mod][pick_indi[2]],
-              yname = "y")
+              yname = "y",
+              INLA_CI = c(unlist(res1$summary.fitted.values[
+                inla.stack.index(stack1, "est")$
+                  data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
+                c("0.01quant", "0.99quant")]))
+              # INLA_CI = c(unlist(res2$summary.fitted.values[
+              #   inla.stack.index(stack2, "est")$
+              #     data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
+              #   c("0.01quant", "0.99quant")]))
+              )
 
 print(individual_y_compar1)
 print(individual_y_compar2)
-ggsave(paste0("./sim/pics/indi50_prefix_compar", sim_ind, "r8.png"),
+ggsave(paste0("./sim/pics/indi50_prefix_compar", sim_ind, "ICI.png"),
        plot = individual_y_compar1,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
-ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "r8.png"),
+ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "ICI.png"),
        plot = individual_y_compar2,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
 # check w #
 
 
-
-# save(weights_M_LSE, weights_M_LP, raw_data, expect_w, expect_y, DIV_matrix,
-#      run_time, file = "./sim/results/1.Rdata")
-
-## check the plots of latent process ##
-library(coda)
-library(spBayes)
-library(MBA)
-library(fields)
-library(classInt)
-library(RColorBrewer)
-library(sp)
-
-r = 3
-h <- 12
-surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$w), no.X = 300, 
-                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LSE"]), 
-                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.LP <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LP"]), 
-                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "M0"]), 
-                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "MCMC"]), 
-                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-
-surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
-col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
-xlim <- c(0, 1.13)
-zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
-                surf.M0[["z"]], surf.MCMC[["z"]]))
-
-# size for the mapping of w               
-width <- 360
-height <- 360
-pointsize <- 16
-
-# setEPS()
-# postscript("./pic/map-w-true.eps")
-par(mfrow = c(2, 3))
-i <- as.image.SpatialGridDataFrame(surf.raw)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "raw")
-axis(2, las=1)
-axis(1)
-image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-# dev.off()
-
-i1 <- as.image.SpatialGridDataFrame(surf.LSE)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LSE") 
-axis(2, las=1)
-axis(1)
-image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i2 <- as.image.SpatialGridDataFrame(surf.LP)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LP") 
-axis(2, las=1)
-axis(1)
-image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i3 <- as.image.SpatialGridDataFrame(surf.M0)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "M0") 
-axis(2, las=1)
-axis(1)
-image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "MCMC") 
-axis(2, las=1)
-axis(1)
-image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-# check predicted w
-surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                           raw_data[[r]]$w[-raw_data[[r]]$ind_mod]), no.X = 300, 
-                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                           expect_w[[r]][-raw_data[[r]]$ind_mod, "LSE"]), 
-                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ],
-                          expect_w[[r]][-raw_data[[r]]$ind_mod, "LP"]), 
-                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                          expect_w[[r]][-raw_data[[r]]$ind_mod, "M0"]), 
-                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                            expect_w[[r]][-raw_data[[r]]$ind_mod, "MCMC"]), 
-                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-
-surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
-col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
-xlim <- c(0, 1.13)
-zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
-                surf.M0[["z"]], surf.MCMC[["z"]]))
-
-par(mfrow = c(2, 3))
-i <- as.image.SpatialGridDataFrame(surf.raw)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "raw")
-axis(2, las=1)
-axis(1)
-image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-# dev.off()
-
-i1 <- as.image.SpatialGridDataFrame(surf.LSE)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LSE") 
-axis(2, las=1)
-axis(1)
-image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i2 <- as.image.SpatialGridDataFrame(surf.LP)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LP") 
-axis(2, las=1)
-axis(1)
-image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i3 <- as.image.SpatialGridDataFrame(surf.M0)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "M0") 
-axis(2, las=1)
-axis(1)
-image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "MCMC") 
-axis(2, las=1)
-axis(1)
-image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-
-### check the predicted y ##
-#r = 2
-surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                           raw_data[[r]]$y[-raw_data[[r]]$ind_mod]), no.X = 300, 
-                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                           expect_y[[r]][, "LSE"]), 
-                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                          expect_y[[r]][, "LP"]), 
-                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                          expect_y[[r]][, "M0"]), 
-                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
-                            expect_y[[r]][, "MCMC"]), 
-                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
-
-surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
-col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
-xlim <- c(0, 1.13)
-zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
-                surf.M0[["z"]], surf.MCMC[["z"]]))
-
-# size for the mapping of w               
-width <- 360
-height <- 360
-pointsize <- 16
-
-# setEPS()
-# postscript("./pic/map-w-true.eps")
-par(mfrow = c(2, 3))
-i <- as.image.SpatialGridDataFrame(surf.raw)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "raw")
-axis(2, las=1)
-axis(1)
-image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-# dev.off()
-
-i1 <- as.image.SpatialGridDataFrame(surf.LSE)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LSE") 
-axis(2, las=1)
-axis(1)
-image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i2 <- as.image.SpatialGridDataFrame(surf.LP)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "stacking-LP") 
-axis(2, las=1)
-axis(1)
-image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i3 <- as.image.SpatialGridDataFrame(surf.M0)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "M0") 
-axis(2, las=1)
-axis(1)
-image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
-plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
-     xlab="x", main = "MCMC") 
-axis(2, las=1)
-axis(1)
-image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
-
-
-
-### old code ###
-### fit with stan ###
-# #######################
-# ## predict with MCMC ##
-# #######################
-# 
-# mod <- cmdstan_model(stan_file = "./sim/projects/spatial_fit.stan")
-# 
-# ### setup ###
-# dat = list(N_mod = (N - N_ho), P = ncol(X), N_ho = N_ho, N = N, X = X,
-#            y = y, coords = coords,
-#            mu_beta = priors$mu_beta,
-#            V_beta = chol2inv(chol(priors$inv_V_beta)),
-#            a_sigma = priors$a_sigma, b_sigma = priors$b_sigma,
-#            a_tau = priors$a_sigma, b_tau = priors$b_sigma,
-#            a_phi = min(phi_grid), b_phi = max(phi_grid))
-# 
-# init_fun <- function() list(phi = phi, tau = sqrt(tau.sq),
-#                             sigma = sqrt(sigma.sq), beta = beta)
-# 
-# fit_mcmc <- mod$sample(data = dat,
-#                        seed = 123,
-#                        chains = 2,
-#                        refresh = 500,
-#                        init = init_fun,
-#                        parallel_chains = 2,
-#                        iter_warmup = 1000,
-#                        iter_sampling = 100)
-# posterior <- as.array(fit_mcmc$draws())
-# dim(posterior)
-# mcmc_trace(posterior, pars = c("tau", "sigma", "phi"))
-# fit_mcmc
-# 
-# y_pred_MCMC <- fit_mcmc$summary("y_pred", "mean")$mean
-# w_expect_MCMC <- fit_mcmc$summary("w", "mean")$mean
-# SPE_MCMC[r] <- mean((y_pred_MCMC - y[(N - N_ho + 1):N])^2)
-# SPE_w_MCMC[r] <- mean((w_expect_MCMC - w)^2)
-# ELPD_MCMC[r] <- mean(fit_mcmc$draws("lp_pred"))
-
-### fit with spBayes ###
-n.samples <- 4000
-starting <- list("phi"=3/0.5, "sigma.sq"=1, "tau.sq"=1, "nu" = 0.5)
-tuning <- list("phi"=0.1, "sigma.sq"=0.1, "tau.sq"=0.1, "nu" = 0.1)
-priors.1 <- list("beta.Norm"=list(rep(0, ncol(X)), solve(priors$inv_V_beta)),
-                 "phi.Unif"=c(3, 33), "sigma.sq.IG"=c(2, 2),
-                 "tau.sq.IG"=c(2, 2), "nu.unif" = c(0.25, 2))
-# priors.2 <- list("beta.Flat", "phi.Unif"=c(3/1, 3/0.1),
-#                  "sigma.sq.IG"=c(2, 2), "tau.sq.IG"=c(2, 0.1))
-cov.model <- "matern"
-n.report <- 5000
-verbose <- TRUE
-m.1 <- spLM(y[ind_mod]~X[ind_mod, ]-1, coords=coords[ind_mod, ],
-            starting=starting,
-            tuning=tuning, priors=priors.1, cov.model=cov.model,
-            n.samples=n.samples, verbose=verbose, n.report=n.report)
-
-
-## check MCMC trace plot ##
-library(bayesplot)
-color_scheme_set("blue")
-mcmc_trace(m.1$p.theta.samples, n_warmup = 0.5*n.samples)
-
-# ## recover beta ##
-# r.1 <- spRecover(m.1, get.w = FALSE, start = 0.5*n.samples, thin = 10,
-#                  n.report =  500)
-# 
-# ## recover latent process on all locations ##
-# ## compute expected response and latent process ##
-# MCMC_out <- expects_MCMC(theta.recover = r.1$p.theta.recover.samples, 
-#         beta.recover = r.1$p.beta.recover.samples, 
-#         y.mod = y[ind_mod], X.mod = X[ind_mod, ], coords.mod = coords[ind_mod, ], 
-#         X.ho = X[-ind_mod, ], y.ho = y[-ind_mod], coords.ho = coords[-ind_mod, ])
-
-# test solvers, MOSEK is installed in julia#
-#RMOSEKDIR = "/home/luzhang/.julia/packages/Mosek/au3Cq/deps/src/mosek/9.3/tools/platform/linux64x86/rmosek"
-#source(paste0(RMOSEKDIR, "/builder.R"))
-#attachbuilder(what_mosek_bindir="/home/luzhang/.julia/packages/Mosek/au3Cq/deps/src/mosek/9.3/tools/platform/linux64x86/bin", pos=2L, name="Rmosek:builder", warn.conflicts=TRUE)
-#install.rmosek()
-
-# library(Rmosek)
-# result <- psolve(prob, solver = "ECOS_BB", verbose = TRUE)
-# round(result$getValue(w)[,1], digits = 3)
-# sum(log(exp_lpd_point%*%result$getValue(w)))
-# #[1] 43.18918
-# 
-# results2 <- psolve(prob, solver = "MOSEK", verbose = TRUE)
-# round(results2$getValue(w)[,1], digits = 3)
-# sum(log(exp_lpd_point%*%results2$getValue(w)))
-# #[1] 43.18921  win
-# 
-# results3 <- psolve(prob, solver = "SCS", verbose = TRUE)
-# round(results3$getValue(w)[,1], digits = 3)
-# sum(log(exp_lpd_point%*%results3$getValue(w)))
-# #[1] 42.40507
-# 
-# result_old <- stacking_weights_old(lp_expect)
-# sum(log(exp_lpd_point%*%result_old))
-# #[1] 39.34675
-# sum(log(exp_lpd_point%*%rep(1/64, 64)))
-# 
-# result_test <- stacking_weights(lp_expect)
-# sum(log(exp_lpd_point%*%result_test))
 
