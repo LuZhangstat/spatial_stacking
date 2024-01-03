@@ -1124,7 +1124,7 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
   stack_prob <- Stack_fit$wts[(Stack_fit$wts>0.00001)]
   num_counts <- c(rmultinom(n = 1, size = L2, prob= stack_prob))
   pick_ind <- lapply(1:length(stack_prob), 
-                     function(x){sort(sample.int(L, num_counts[x], 
+                     function(x){sort(sample.int(L1, num_counts[x], 
                                                  replace = TRUE))})
   #save the predictive samples for y
   if(length(pick_mods$deltasq) == 1){
