@@ -40,6 +40,13 @@ covariates_matrix <- array(data = LA_xfea64,
 covariates_df <- as.data.frame(covariates_matrix)
 covariates_df$x <- x_ind
 covariates_df$y <- y_ind
+covariates_fea3_matrix <- array(data = LA_xfea3, 
+                           dim = c(dim(LA_xfea3)[1] * dim(LA_xfea3)[2], 
+                                   dim(LA_xfea3)[3]))
+fea3_df <- as.data.frame(covariates_fea3_matrix)
+fea3_df$x <- x_ind
+fea3_df$y <- y_ind
+names(fea3_df)[1:3] = c("EVI", "IS", "RND")
 
 # Combine with df_aod
 combined_data <- df_aod %>%
@@ -81,25 +88,161 @@ pred_lm <- predict(lm_fit2, combined_data_test[, c("x", "y", paste0("V", 1:64))]
 #0.6877944
 
 ## Visualization ##
+library("ggplot2")
+library("viridis")
+library("gridExtra")
+library(gtable)
+
+min_log_aod <- min(log(combined_data$AOD), na.rm = TRUE)
+max_log_aod <- max(log(combined_data$AOD), na.rm = TRUE)
+
+# Determine the range 
+x_range <- range(combined_data$x, na.rm = TRUE)
+y_range <- range(combined_data$y, na.rm = TRUE)
+# Calculate aspect ratio (if necessary)
+aspect_ratio <- diff(x_range) / diff(y_range)
+
 # The map of the raw AOD data in central LA ##
-aod_p <- ggplot(combined_data, aes(x = x, y = y, fill = log(AOD))) + 
-  geom_tile() + 
-  scale_fill_gradientn(colors = viridis::viridis(6)) +
-  theme_minimal() + 
+aod_p <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+    xlim = x_range, ylim = y_range) +
+  geom_tile(data = combined_data, 
+            aes(x = x, y = y, fill = log(AOD))) + 
+  scale_fill_gradientn(colors = viridis::viridis(6), 
+                       limits = c(min_log_aod, max_log_aod),
+                       name = "Log AOD") +
+  theme_minimal() + labs(title = "Raw AOD") +
   theme(axis.text = element_blank(), 
         axis.title = element_blank(),
-        axis.ticks = element_blank())
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5))
 aod_p
+aod_p_legend <- gtable_filter(ggplot_gtable(ggplot_build(aod_p)), "guide-box")
+aod_p <- aod_p + guides(fill = "none")
+# Plot the masked image #
+aod_mask <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+              xlim = x_range, ylim = y_range) +
+  geom_tile(data = combined_data,         # Add the image layer
+            aes(x = x, y = y, fill = log(AOD))) +
+  geom_tile(data = mask_df,        # Overlay the mask layer
+            aes(x = x, y = y), fill = "white", 
+            alpha = ifelse(mask_df$mask, 0.95, 0)) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod)) +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + labs(title = "Training") +
+  guides(fill = "none")#,
+#legend.position = "none")
+aod_mask
+# The white part in the middle are cloud coverage
+
+aod_test <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+              xlim = x_range, ylim = y_range) +
+  geom_tile(data = combined_data,         # Add the image layer
+            aes(x = x, y = y, fill = log(AOD))) +
+  geom_tile(data = mask_df,        # Overlay the mask layer
+            aes(x = x, y = y), fill = "white", 
+            alpha = ifelse(mask_df$mask, 0, 0.95)) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod)) +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + labs(title = "Testing") +
+  guides(fill = "none")#,
+#legend.position = "none")
+aod_test
+
+
+combined_plot <- grid.arrange(aod_p, aod_mask, aod_test,
+                              aod_p_legend, ncol = 4, widths = c(1, 1, 1, 0.4))
+
+#ggsave("./RDA/pics/AOD_plots.png", combined_plot, width = 9, height = 3)
 
 # check the plot of covariates
-V_p <- ggplot(combined_data, aes(x = x, y = y, fill = V3)) + 
+V_p <- ggplot(combined_data, aes(x = x, y = y, fill = V1)) + 
   geom_tile() + 
   scale_fill_gradientn(colors = viridis::viridis(6)) +
   theme_minimal() + 
   theme(axis.text = element_blank(), 
         axis.title = element_blank(),
-        axis.ticks = element_blank())
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + labs(title = "V1")
 V_p
+
+EVI_p <- ggplot(fea3_df, aes(x = x, y = y, fill = EVI)) + 
+  geom_tile() + 
+  coord_fixed(xlim = x_range, ylim = y_range) +
+  scale_fill_gradientn(colors = viridis::viridis(6)) +
+  theme_minimal() + 
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + labs(title = "EVI")
+EVI_p
+
+IS_p <- ggplot(fea3_df, aes(x = x, y = y, fill = IS)) + 
+  geom_tile() + 
+  coord_fixed( xlim = x_range, ylim = y_range) +
+  scale_fill_gradientn(colors = viridis::viridis(6)) +
+  theme_minimal() + 
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Impervious Surface %")
+IS_p
+
+RND_p <- ggplot(fea3_df, aes(x = x, y = y, fill = RND)) + 
+  geom_tile() + 
+  coord_fixed(xlim = x_range, ylim = y_range) +
+  scale_fill_gradientn(colors = viridis::viridis(6)) +
+  theme_minimal() + 
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Road Network Density")
+RND_p
+
+fea3_plot <- grid.arrange(EVI_p, IS_p, RND_p, ncol = 3)
+
+ggsave("./RDA/pics/fea3_plots.png", fea3_plot, width = 10, height = 3.5)
+
 
 # check the residual #
 res_dat <- data.frame(residual = AOD_residual2, x = combined_data_train$x,
@@ -113,21 +256,6 @@ res_p <- ggplot(res_dat, aes(x = x, y = y, fill = residual)) +
         axis.ticks = element_blank())
 res_p
 
-# Plot the masked image #
-aod_mask <- ggplot() + coord_fixed() + # Ensure the aspect ratio remains fixed
-  geom_tile(data = combined_data,         # Add the image layer
-            aes(x = x, y = y, fill = log(AOD))) +
-  geom_tile(data = mask_df,        # Overlay the mask layer
-            aes(x = x, y = y), fill = "white", 
-            alpha = ifelse(mask_df$mask, 0.9, 0)) +
-  scale_fill_gradientn(colors = viridis::viridis(6)) +  
-  theme_minimal() +                # Adjust this for your image color scale
-  theme(axis.text = element_blank(), 
-        axis.title = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = "none")
-aod_mask
-# The white part in the middle are cloud coverage
 
 
 
@@ -223,7 +351,7 @@ if(run_tag){
   CV_fit_LSE$time #4.3 hours
   save(CV_fit_LSE, file = "./RDA/result/CV_fit_LSE.RData")
 }
-load("./RDA/result/CV_fit_LSE.RData")
+load("./RDA/result/CV_fit_LSE2.RData")
 weights_LSE <- CV_fit_LSE$wts
 
 
@@ -264,7 +392,7 @@ if(run_tag){
                                     }))
   save(pred_y_U_stack_sam_LSE, file = "./RDA/result/pred_y_U_stack_sam_LSE.RData")
 }
-load("./RDA/result/pred_y_U_stack_sam_LSE.RData")
+load("./RDA/result/pred_y_U_stack_sam_LSE2.RData")
 # Obtain 95% CIs
 y_U_CI_stack_LSE <- 
   apply(pred_y_U_stack_sam_LSE, 1, 
@@ -272,8 +400,11 @@ y_U_CI_stack_LSE <-
 
 sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
-# 0.7957067, ~80% coverage
+# 0.7957067, ~80% coverage (K = 3) LSE2: 0.736
 
+1 - sum((rowMeans(pred_y_U_stack_sam_LSE) - log(combined_data_test$AOD))^2)/ 
+  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
+# LSE2: 0.876
 
 ## stacking mean squared prediction error ##
 y_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
