@@ -23,39 +23,45 @@ deltasq_grid <- c(0.1, 0.5, 1, 2) # should change to c(0.25, 0.5, 1, 2)
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 
-# test 2: Empirical method: semivariogram + indep deltasq #
+# test2: grid2 for deltasq #
 load("./sim_hoffman2/results/sim1_1.RData")
-## Variogram ##
-library(geoR)
-library(fields)
-### variogram of raw data and residuals ###
-r = 8
-coords_train <- raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ]
-lm_fit <- lm(raw_data[[r]]$y[raw_data[[r]]$ind_mod]~
-               raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
-res <- residuals(lm_fit)
-max.dist=0.6*max(rdist(coords_train))
-bins=20
-vario.resid <- variog(coords=coords_train,
-                      data=res,
-                      uvec=(seq(0.01, max.dist, length=bins)))
-plot(vario.resid)
-vfit_wls=variofit(vario.resid, 
-                  ini.cov.pars=c(1, 0.4), 
-                  nugget=1, 
-                  fix.nugget=FALSE, fix.kappa = FALSE,
-                  cov.model='matern', 
-                  weights='cressie')
-vfit_wls
-plot(vario.resid)
-lines(vfit_wls, col="purple", lwd=1.5)
+deltasq_grid2 <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq, 
+                              E_tausq = raw_data[[1]]$tau.sq, b = 2,
+                            p_ls = c(0.2, 0.4, 0.6, 0.8))
+deltasq_grid2
 
-
-eff_range <- c(0.2, 0.4, 0.6, 0.8)
-phi_ls <- decay_est(eff_range, nu_grid)
-phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
-colnames(phi_nu_ls) = c("phi", "nu")
-
+# # test 2: Empirical method: semivariogram for deltasq #
+# load("./sim_hoffman2/results/sim1_1.RData")
+# ## Variogram ##
+# library(geoR)
+# library(fields)
+# ### variogram of raw data and residuals ###
+# r = 8
+# coords_train <- raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ]
+# lm_fit <- lm(raw_data[[r]]$y[raw_data[[r]]$ind_mod]~
+#                raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
+# res <- residuals(lm_fit)
+# max.dist=0.6*max(rdist(coords_train))
+# bins=20
+# vario.resid <- variog(coords=coords_train,
+#                       data=res,
+#                       uvec=(seq(0.01, max.dist, length=bins)))
+# plot(vario.resid)
+# vfit_wls=variofit(vario.resid, 
+#                   ini.cov.pars=c(1, 0.4), 
+#                   nugget=1, 
+#                   fix.nugget=FALSE, fix.kappa = FALSE,
+#                   cov.model='matern', 
+#                   weights='cressie')
+# vfit_wls
+# plot(vario.resid)
+# lines(vfit_wls, col="purple", lwd=1.5)
+# 
+# eff_range <- c(0.2, 0.4, 0.6, 0.8)
+# phi_ls <- decay_est(eff_range, nu_grid)
+# phi_nu_ls <- cbind(c(phi_ls), rep(nu_grid, each = length(eff_range))) # put all phi and nu candidate value here
+# colnames(phi_nu_ls) = c("phi", "nu")
+# 
 
 # test 3: posterior sample from marginal distribution #
 input_id = 1
@@ -176,18 +182,19 @@ for(r in 1:N_list){ # repeat
   ##########################################################
   ## select prefixed value based on empirical variogram   ##
   ##########################################################
-  CV_fit_LSE <- sp_stacking_K_fold2(
+  CV_fit_LSE <- sp_stacking_K_fold(
     X = X[ind_mod, ], y = y[ind_mod], 
     coords = coords[ind_mod, ],
-    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, priors = priors, 
+    deltasq_grid = deltasq_grid2,  phi_grid = phi_grid,
+    nu_grid = nu_grid, priors = priors, 
     K_fold = K_fold, seed = seed, label = "LSE")
   weights_M_LSE[, r] <- CV_fit_LSE$wts
   run_time2["Stack_LSE_E", r] <- CV_fit_LSE$time[3]
   
-  CV_fit_LP <- sp_stacking_K_fold2(
+  CV_fit_LP <- sp_stacking_K_fold(
     X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
-    deltasq_grid = deltasq_grid, phi_nu_ls = phi_nu_ls, 
-    priors = priors, K_fold = K_fold,
+    deltasq_grid = deltasq_grid2,  phi_grid = phi_grid,
+    nu_grid = nu_grid, priors = priors, K_fold = K_fold,
     seed = seed, label = "LP", MC = FALSE)
   weights_M_LP[, r] <- CV_fit_LP$wts
   run_time2["Stack_LP_E", r] <- CV_fit_LP$time[3]
@@ -462,14 +469,20 @@ summary(DIV_matrix2)
 ############################################################
 ######## the impact of candidate value for sigma^2 #########
 ############################################################
-load("./sim_hoffman2/results/sim2_1.RData")
+load("./sim_hoffman2/results/sim1_1.RData")
 # default method #
-sim_ind = 2
+sim_ind = 1
 deltasq_grid <- c(0.1, 0.5, 1, 2) # c(0.1, 0.5, 1, 2)
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
+deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq, 
+                              E_tausq = raw_data[[1]]$tau.sq, 
+                             b = max(raw_data[[1]]$tau.sq, raw_data[[1]]$sigma.sq),
+                              p_ls = c(0.2, 0.4, 0.6, 0.8))
+deltasq_grid
+seed = 123
 
-r = 4 # r = 2,8 for sim1 r = 4 for sim2
+r = 8 # r = 2,8 for sim1 r = 4 for sim2
 ind_mod = raw_data[[r]]$ind_mod
 X <- raw_data[[r]]$X
 y <- raw_data[[r]]$y
@@ -485,8 +498,6 @@ CV_fit_LSE <- sp_stacking_K_fold(
   deltasq_grid = deltasq_grid, phi_grid = phi_grid,
   nu_grid = nu_grid, priors = priors, 
   K_fold = K_fold, seed = seed, label = "LSE")
-weights_M_LSE[, r] <- CV_fit_LSE$wts
-run_time2["Stack_LSE_E", r] <- CV_fit_LSE$time[3]
 cbind(CV_fit_LSE$grid_all[CV_fit_LSE$wts>0.00001, ], 
       CV_fit_LSE$wts[CV_fit_LSE$wts>0.00001])
 
@@ -815,6 +826,64 @@ ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "ICI.png"),
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
 # check w #
+pick_indi <- c(50, 90)
+draws_ls1 <- c()
+draws_ls1[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]
+draws_ls1[[2]] <- pos_sam_LSE$pred_w_U_stack_sam[pick_indi[1], ]
+draws_ls1[[3]] <- pos_sam_LSE_I$pred_w_U_stack_sam[pick_indi[1], ]
+draws_ls1[[4]] <- pos_sam_LSE_P$pred_w_U_stack_sam[pick_indi[1], ]
+draws_ls1[[5]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]
+draws_ls1[[6]] <- pos_sam_LP$pred_w_U_stack_sam[pick_indi[1], ]
+draws_ls1[[7]] <- pos_sam_LP_I$pred_w_U_stack_sam[pick_indi[1], ]
+draws_ls1[[8]] <- pos_sam_LP_P$pred_w_U_stack_sam[pick_indi[1], ]
+
+individual_w_compar1 <- 
+  hist_compar(draws_ls = draws_ls1, 
+              type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"), 
+              type_names = c("posterior", "default", "INLA+Stacking", 
+                             "MCMC+Stacking"), 
+              test_names = c("LSE", "LP"), 
+              true_value = w[-ind_mod][pick_indi[1]],
+              yname = "w"
+              # INLA_CI = c(unlist(res2$summary.fitted.values[
+              #   inla.stack.index(stack2, "est")$
+              #     data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
+              #   c("0.01quant", "0.99quant")]))
+  )
+
+res2$summary.fitted.values[r*100+pick_indi[2], c("0.01quant", "0.99quant")]
+draws_ls2 <- c()
+draws_ls2[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[2], 101:1000]
+draws_ls2[[2]] <- pos_sam_LSE$pred_w_U_stack_sam[pick_indi[2], ]
+draws_ls2[[3]] <- pos_sam_LSE_I$pred_w_U_stack_sam[pick_indi[2], ]
+draws_ls2[[4]] <- pos_sam_LSE_P$pred_w_U_stack_sam[pick_indi[2], ]
+draws_ls2[[5]] <- pos_wy$w.recover.sample[r*100+pick_indi[2], 101:1000]
+draws_ls2[[6]] <- pos_sam_LP$pred_w_U_stack_sam[pick_indi[2], ]
+draws_ls2[[7]] <- pos_sam_LP_I$pred_w_U_stack_sam[pick_indi[2], ]
+draws_ls2[[8]] <- pos_sam_LP_P$pred_w_U_stack_sam[pick_indi[2], ]
+
+individual_w_compar2 <- 
+  hist_compar(draws_ls = draws_ls2, 
+              type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"), 
+              type_names = c("posterior", "default", "INLA+stacking", 
+                             "MCMC+stacking"), 
+              test_names = c("LSE", "LP"), 
+              true_value = w[-ind_mod][pick_indi[2]],
+              yname = "w"
+              # INLA_CI = c(unlist(res2$summary.fitted.values[
+              #   inla.stack.index(stack2, "est")$
+              #     data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
+              #   c("0.01quant", "0.99quant")]))
+  )
+
+print(individual_w_compar1)
+print(individual_w_compar2)
+ggsave(paste0("./sim/pics/indi50_prefix_w_compar", sim_ind, ".png"),
+       plot = individual_w_compar1,
+       width = 6.5, height = 3.5, units = "in", dpi = 600)
+ggsave(paste0("./sim/pics/indi90_prefix_w_compar", sim_ind, ".png"),
+       plot = individual_w_compar2,
+       width = 6.5, height = 3.5, units = "in", dpi = 600)
 
 
 

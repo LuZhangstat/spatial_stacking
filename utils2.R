@@ -1117,6 +1117,7 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
                    coords.ho = coords.ho,
                    L = L1)
     pos_y_U[[j]] <- pred_pos_sam$y_U_expect
+    pos_w_U[[j]] <- pred_pos_sam$w_U_expect
     pos_sigmasq[[j]] <- pred_pos_sam$sigma.sq.sam
     cat("use time: ", (proc.time() - t1)[3], "\n")
   }
@@ -1129,17 +1130,23 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
   #save the predictive samples for y
   if(length(pick_mods$deltasq) == 1){
     pred_y_U_stack_sam <- pos_y_U[[1]][, pick_ind[[1]]]
+    pred_w_U_stack_sam <- pos_w_U[[1]][, pick_ind[[1]]]
   }else{
     pred_y_U_stack_sam <- do.call(cbind,
                                   sapply(1:length(stack_prob), function(x){
                                     pos_y_U[[x]][, pick_ind[[x]]]
+                                  }))
+    pred_w_U_stack_sam <- do.call(cbind,
+                                  sapply(1:length(stack_prob), function(x){
+                                    pos_w_U[[x]][, pick_ind[[x]]]
                                   }))
   }
   sigmasq_sam <- unlist(sapply(1:length(stack_prob), function(x){
     pos_sigmasq[[x]][pick_ind[[x]]]
   }))
   return(list(sigmasq_sam = sigmasq_sam, 
-              pred_y_U_stack_sam = pred_y_U_stack_sam))
+              pred_y_U_stack_sam = pred_y_U_stack_sam,
+              pred_w_U_stack_sam = pred_w_U_stack_sam))
 }
 
 library(ggplot2)
@@ -1228,5 +1235,18 @@ recover_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
   return(list(w.recover.sample = w.recover.sample,
               y.ho.sample = y.ho.sample,
               time = t1))
+}
+
+pick_deltasq <- function(E_sigmasq, E_tausq, b = 2, 
+                         p_ls = c(0.1, 0.25, 0.5, 0.75, 0.9)){
+  
+  #Use expectation of sigmasq and tausq to select alpha and beta
+  alpha = b / E_sigmasq +1
+  beta = b / E_tausq +1
+  
+  # the mode of beta is E_tausq/E_sigmasq
+  quantile_ls <- qbeta(p_ls, shape1 = alpha, shape2 = beta)
+  deltasq_cand <- quantile_ls / (1 - quantile_ls)
+  return(deltasq_cand)
 }
 
