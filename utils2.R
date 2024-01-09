@@ -1101,9 +1101,10 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
   pick_mods <- Stack_fit$grid_all[(Stack_fit$wts>0.00001), ]
   pos_y_U <- c()
   pos_w_U <- c()
+  pos_beta <- c()
   pos_sigmasq <- c()
   cat("No. of models:", length(pick_mods$deltasq), "\n")
-  
+  p = ncol(X.mod)
   for (j in 1:length(pick_mods$deltasq)){
     cat(j, "\t")
     t1 <- proc.time()
@@ -1119,6 +1120,7 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
     pos_y_U[[j]] <- pred_pos_sam$y_U_expect
     pos_w_U[[j]] <- pred_pos_sam$w_U_expect
     pos_sigmasq[[j]] <- pred_pos_sam$sigma.sq.sam
+    pos_beta[[j]] <- pred_pos_sam$gamma.sam[1:p, ]
     cat("use time: ", (proc.time() - t1)[3], "\n")
   }
   proc.time() - t
@@ -1131,6 +1133,7 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
   if(length(pick_mods$deltasq) == 1){
     pred_y_U_stack_sam <- pos_y_U[[1]][, pick_ind[[1]]]
     pred_w_U_stack_sam <- pos_w_U[[1]][, pick_ind[[1]]]
+    pred_beta_stack_sam <- pos_beta[[1]][, pick_ind[[1]]]
   }else{
     pred_y_U_stack_sam <- do.call(cbind,
                                   sapply(1:length(stack_prob), function(x){
@@ -1140,13 +1143,18 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
                                   sapply(1:length(stack_prob), function(x){
                                     pos_w_U[[x]][, pick_ind[[x]]]
                                   }))
+    pred_beta_stack_sam <- do.call(cbind,
+                                  sapply(1:length(stack_prob), function(x){
+                                    pos_beta[[x]][, pick_ind[[x]]]
+                                  }))
   }
   sigmasq_sam <- unlist(sapply(1:length(stack_prob), function(x){
     pos_sigmasq[[x]][pick_ind[[x]]]
   }))
   return(list(sigmasq_sam = sigmasq_sam, 
               pred_y_U_stack_sam = pred_y_U_stack_sam,
-              pred_w_U_stack_sam = pred_w_U_stack_sam))
+              pred_w_U_stack_sam = pred_w_U_stack_sam,
+              pred_beta_stack_sam = pred_beta_stack_sam))
 }
 
 library(ggplot2)

@@ -477,7 +477,7 @@ phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31)
 nu_grid = c(0.5, 1, 1.5, 1.75)
 deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq, 
                               E_tausq = raw_data[[1]]$tau.sq, 
-                             b = max(raw_data[[1]]$tau.sq, raw_data[[1]]$sigma.sq),
+                              b = max(raw_data[[1]]$tau.sq, raw_data[[1]]$sigma.sq),
                               p_ls = c(0.2, 0.4, 0.6, 0.8))
 deltasq_grid
 seed = 123
@@ -715,9 +715,9 @@ sigmasq_compar <-
               yname = "sigmasq", bins = 45)
 
 sigmasq_compar
-# ggsave(paste0("./sim/pics/sigmasq_prefix_compar", sim_ind, ".png"),
-#        plot = sigmasq_compar,
-#        width = 6.5, height = 3.5, units = "in", dpi = 600)
+ggsave(paste0("./sim/pics/sigmasq_prefix_compar", sim_ind, "_r", r, ".png"),
+       plot = sigmasq_compar,
+       width = 6.5, height = 3.5, units = "in", dpi = 600)
 
 
 # check histograms for individuals (pick the 50th and 100th point)#
@@ -752,10 +752,36 @@ if(fit_flag){
                          X.ho = X[-ind_mod, ], y.ho = y[-ind_mod],
                          coords.ho = coords[-ind_mod, ])
   save(m.1, r.1, pos_wy, 
-       file = paste0("./sim/results/indi_compar", sim_ind, "r8.Rdata"))
+       file = paste0("./sim/results/indi_compar", sim_ind, "_r", r, ".Rdata"))
 }else{
-  load(paste0("./sim/results/indi_compar", sim_ind, ".Rdata"))
+  load(paste0("./sim/results/indi_compar", sim_ind, "_r", r, ".Rdata"))
 }
+
+# compare beta2 #
+draws_ls_b2 <- c()
+draws_ls_b2[[1]] <- r.1$p.beta.recover.samples[101:1000, 2]
+draws_ls_b2[[2]] <- pos_sam_LSE$pred_beta_stack_sam[2, ]
+draws_ls_b2[[3]] <- pos_sam_LSE_I$pred_beta_stack_sam[2, ]
+draws_ls_b2[[4]] <- pos_sam_LSE_P$pred_beta_stack_sam[2, ]
+draws_ls_b2[[5]] <- r.1$p.beta.recover.samples[101:1000, 2]
+draws_ls_b2[[6]] <- pos_sam_LP$pred_beta_stack_sam[2, ]
+draws_ls_b2[[7]] <- pos_sam_LP_I$pred_beta_stack_sam[2, ]
+draws_ls_b2[[8]] <- pos_sam_LP_P$pred_beta_stack_sam[2, ]
+#cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
+b2_compar <- 
+  hist_compar(draws_ls = draws_ls_b2, 
+              type_colors = c("#999999", "#69b3a2", "#404080", "#E69F00"),  #"#56B4E9",
+              type_names = c("posterior", "default", "INLA+stacking", 
+                             "MCMC+stacking"), 
+              test_names = c("LSE", "LP"), 
+              true_value = raw_data[[r]]$beta[2],
+              yname = "beta 2", bins = 45)
+
+b2_compar
+ggsave(paste0("./sim/pics/beta2_prefix_compar", sim_ind, "_r", r, ".png"),
+       plot = sigmasq_compar,
+       width = 6.5, height = 3.5, units = "in", dpi = 600)
+
 
 # check y #
 pick_indi <- c(50, 90)
@@ -818,24 +844,32 @@ individual_y_compar2 <-
 
 print(individual_y_compar1)
 print(individual_y_compar2)
-ggsave(paste0("./sim/pics/indi50_prefix_compar", sim_ind, "ICI.png"),
+ggsave(paste0("./sim/pics/indi50_prefix_compar", sim_ind, "ICI_r", r, ".png"),
        plot = individual_y_compar1,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
-ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "ICI.png"),
+ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "ICI_r", r, ".png"),
        plot = individual_y_compar2,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
 # check w #
 pick_indi <- c(50, 90)
 draws_ls1 <- c()
-draws_ls1[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]
-draws_ls1[[2]] <- pos_sam_LSE$pred_w_U_stack_sam[pick_indi[1], ]
-draws_ls1[[3]] <- pos_sam_LSE_I$pred_w_U_stack_sam[pick_indi[1], ]
-draws_ls1[[4]] <- pos_sam_LSE_P$pred_w_U_stack_sam[pick_indi[1], ]
-draws_ls1[[5]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]
-draws_ls1[[6]] <- pos_sam_LP$pred_w_U_stack_sam[pick_indi[1], ]
-draws_ls1[[7]] <- pos_sam_LP_I$pred_w_U_stack_sam[pick_indi[1], ]
-draws_ls1[[8]] <- pos_sam_LP_P$pred_w_U_stack_sam[pick_indi[1], ]
+draws_ls1[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]+
+  r.1$p.beta.recover.samples[101:1000, 1]
+draws_ls1[[2]] <- pos_sam_LSE$pred_w_U_stack_sam[pick_indi[1], ] +
+  pos_sam_LSE$pred_beta_stack_sam[1, ]
+draws_ls1[[3]] <- pos_sam_LSE_I$pred_w_U_stack_sam[pick_indi[1], ] +
+  pos_sam_LSE_I$pred_beta_stack_sam[1, ]
+draws_ls1[[4]] <- pos_sam_LSE_P$pred_w_U_stack_sam[pick_indi[1], ]+
+  pos_sam_LSE_P$pred_beta_stack_sam[1, ]
+draws_ls1[[5]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]+
+  r.1$p.beta.recover.samples[101:1000, 1]
+draws_ls1[[6]] <- pos_sam_LP$pred_w_U_stack_sam[pick_indi[1], ] +
+  pos_sam_LP$pred_beta_stack_sam[1, ]
+draws_ls1[[7]] <- pos_sam_LP_I$pred_w_U_stack_sam[pick_indi[1], ] +
+  pos_sam_LP_I$pred_beta_stack_sam[1, ]
+draws_ls1[[8]] <- pos_sam_LP_P$pred_w_U_stack_sam[pick_indi[1], ] +
+  pos_sam_LP_P$pred_beta_stack_sam[1, ]
 
 individual_w_compar1 <- 
   hist_compar(draws_ls = draws_ls1, 
@@ -843,8 +877,8 @@ individual_w_compar1 <-
               type_names = c("posterior", "default", "INLA+Stacking", 
                              "MCMC+Stacking"), 
               test_names = c("LSE", "LP"), 
-              true_value = w[-ind_mod][pick_indi[1]],
-              yname = "w"
+              true_value = w[-ind_mod][pick_indi[1]]+raw_data[[r]]$beta[1],
+              yname = "w+beta1"
               # INLA_CI = c(unlist(res2$summary.fitted.values[
               #   inla.stack.index(stack2, "est")$
               #     data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
@@ -853,14 +887,22 @@ individual_w_compar1 <-
 
 res2$summary.fitted.values[r*100+pick_indi[2], c("0.01quant", "0.99quant")]
 draws_ls2 <- c()
-draws_ls2[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[2], 101:1000]
-draws_ls2[[2]] <- pos_sam_LSE$pred_w_U_stack_sam[pick_indi[2], ]
-draws_ls2[[3]] <- pos_sam_LSE_I$pred_w_U_stack_sam[pick_indi[2], ]
-draws_ls2[[4]] <- pos_sam_LSE_P$pred_w_U_stack_sam[pick_indi[2], ]
-draws_ls2[[5]] <- pos_wy$w.recover.sample[r*100+pick_indi[2], 101:1000]
-draws_ls2[[6]] <- pos_sam_LP$pred_w_U_stack_sam[pick_indi[2], ]
-draws_ls2[[7]] <- pos_sam_LP_I$pred_w_U_stack_sam[pick_indi[2], ]
-draws_ls2[[8]] <- pos_sam_LP_P$pred_w_U_stack_sam[pick_indi[2], ]
+draws_ls2[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[2], 101:1000]+
+  r.1$p.beta.recover.samples[101:1000, 1]
+draws_ls2[[2]] <- pos_sam_LSE$pred_w_U_stack_sam[pick_indi[2], ] +
+  pos_sam_LSE$pred_beta_stack_sam[1, ]
+draws_ls2[[3]] <- pos_sam_LSE_I$pred_w_U_stack_sam[pick_indi[2], ] +
+  pos_sam_LSE_I$pred_beta_stack_sam[1, ]
+draws_ls2[[4]] <- pos_sam_LSE_P$pred_w_U_stack_sam[pick_indi[2], ]+
+  pos_sam_LSE_P$pred_beta_stack_sam[1, ]
+draws_ls2[[5]] <- pos_wy$w.recover.sample[r*100+pick_indi[2], 101:1000]+
+  r.1$p.beta.recover.samples[101:1000, 1]
+draws_ls2[[6]] <- pos_sam_LP$pred_w_U_stack_sam[pick_indi[2], ] +
+  pos_sam_LP$pred_beta_stack_sam[1, ]
+draws_ls2[[7]] <- pos_sam_LP_I$pred_w_U_stack_sam[pick_indi[2], ] +
+  pos_sam_LP_I$pred_beta_stack_sam[1, ]
+draws_ls2[[8]] <- pos_sam_LP_P$pred_w_U_stack_sam[pick_indi[2], ] +
+  pos_sam_LP_P$pred_beta_stack_sam[1, ]
 
 individual_w_compar2 <- 
   hist_compar(draws_ls = draws_ls2, 
@@ -868,8 +910,8 @@ individual_w_compar2 <-
               type_names = c("posterior", "default", "INLA+stacking", 
                              "MCMC+stacking"), 
               test_names = c("LSE", "LP"), 
-              true_value = w[-ind_mod][pick_indi[2]],
-              yname = "w"
+              true_value = w[-ind_mod][pick_indi[2]]+raw_data[[r]]$beta[1],
+              yname = "w+beta1"
               # INLA_CI = c(unlist(res2$summary.fitted.values[
               #   inla.stack.index(stack2, "est")$
               #     data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
@@ -878,10 +920,10 @@ individual_w_compar2 <-
 
 print(individual_w_compar1)
 print(individual_w_compar2)
-ggsave(paste0("./sim/pics/indi50_prefix_w_compar", sim_ind, ".png"),
+ggsave(paste0("./sim/pics/indi50_prefix_incpw_compar", sim_ind, "_r", r, ".png"),
        plot = individual_w_compar1,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
-ggsave(paste0("./sim/pics/indi90_prefix_w_compar", sim_ind, ".png"),
+ggsave(paste0("./sim/pics/indi90_prefix_incpw_compar", sim_ind, "_r", r, ".png"),
        plot = individual_w_compar2,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
