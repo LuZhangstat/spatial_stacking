@@ -40,6 +40,7 @@ covariates_matrix <- array(data = LA_xfea64,
 covariates_df <- as.data.frame(covariates_matrix)
 covariates_df$x <- x_ind
 covariates_df$y <- y_ind
+# the original 3 features #
 covariates_fea3_matrix <- array(data = LA_xfea3, 
                            dim = c(dim(LA_xfea3)[1] * dim(LA_xfea3)[2], 
                                    dim(LA_xfea3)[3]))
@@ -51,6 +52,9 @@ names(fea3_df)[1:3] = c("EVI", "IS", "RND")
 # Combine with df_aod
 combined_data <- df_aod %>%
   left_join(covariates_df, by = c("x", "y"))
+
+combined_data <- combined_data %>%
+  left_join(fea3_df, by = c("x", "y"))
 
 # Check the combined data frame
 glimpse(combined_data)
@@ -86,6 +90,25 @@ pred_lm <- predict(lm_fit2, combined_data_test[, c("x", "y", paste0("V", 1:64))]
 1 - sum((exp(c(pred_lm)) - combined_data_test$AOD)^2)/ 
   sum((combined_data_test$AOD - mean(combined_data_test$AOD))^2)
 #0.6877944
+
+# consider the original 3 features EVI IS RND #
+pick_var2 <- c("AOD", "x", "y", "EVI", "IS", "RND")
+lm_fit_2 <- lm(AOD~x+y+., data = combined_data_train[, pick_var2])
+summary(lm_fit_2)   # Adjusted R-squared = 0.5
+lm_fit2_2 <- lm(log(AOD)~x+y+., data = combined_data_train[, pick_var2])
+summary(lm_fit2_2)   # Adjusted R-squared = 0.478
+# check residual
+AOD_residual1_2 <- residuals(lm_fit_2); hist(AOD_residual1_2)
+qqnorm(scale(AOD_residual1_2)); abline(a=0,b=1)
+AOD_residual2_2 <- residuals(lm_fit2_2); hist(AOD_residual2_2)
+qqnorm(scale(AOD_residual2_2)); abline(a=0,b=1)
+pred_lm_2 <- predict(lm_fit2_2, 
+                     combined_data_test[, c("x", "y", "EVI", "IS", "RND")])
+1 - sum((exp(c(pred_lm_2)) - combined_data_test$AOD)^2)/ 
+  sum((combined_data_test$AOD - mean(combined_data_test$AOD))^2)
+#0.45
+
+
 
 ## Visualization ##
 library("ggplot2")
@@ -241,11 +264,11 @@ RND_p
 
 fea3_plot <- grid.arrange(EVI_p, IS_p, RND_p, ncol = 3)
 
-ggsave("./RDA/pics/fea3_plots.png", fea3_plot, width = 10, height = 3.5)
+#ggsave("./RDA/pics/fea3_plots.png", fea3_plot, width = 10, height = 3.5)
 
 
 # check the residual #
-res_dat <- data.frame(residual = AOD_residual2, x = combined_data_train$x,
+res_dat <- data.frame(residual = AOD_residual2_2, x = combined_data_train$x,
                       y = combined_data_train$y)
 res_p <- ggplot(res_dat, aes(x = x, y = y, fill = residual)) + 
   geom_tile() + 
@@ -277,14 +300,14 @@ vario.AOD.resid <- variog(coords=coords_train,
 plot(vario.AOD.resid)
 
 vario.AOD.resid2 <- variog(coords=coords_train, 
-                           data=AOD_residual2, 
+                           data=AOD_residual2_2, #AOD_residual2
                            uvec=(seq(0.5, max.dist, length=bins)),
                            estimator.type="modulus")
 plot(vario.AOD.resid2)
 vfit_wls=variofit(vario.AOD.resid2, 
                   ini.cov.pars=c(0.02, 10), 
                   nugget=0.001, 
-                  fix.nugget=FALSE, fix.kappa = TRUE, kappa = 0.5,
+                  fix.nugget=FALSE, fix.kappa = FALSE, 
                   cov.model='matern', 
                   weights='cressie')
 vfit_wls
@@ -302,15 +325,23 @@ library(GPBayes)
 
 # method 1.
 range(c(1 / Matern.cor.to.range(5, 0.5, cor.target=.05),
-        1 / Matern.cor.to.range(15, 0.5, cor.target=.05),
-        1 / Matern.cor.to.range(15, 1.0, cor.target=.05),
-        1 / Matern.cor.to.range(5, 1.0, cor.target=.05)))
+        1 / Matern.cor.to.range(25, 0.5, cor.target=.05),
+        1 / Matern.cor.to.range(25, 1.75, cor.target=.05),
+        1 / Matern.cor.to.range(5, 1.75, cor.target=.05)))
 
-#~0.2 to ~0.8
-phi_grid = c(0.2, 0.4, 0.6, 0.8)
-nu_grid = c(0.5, 1.0)
-deltasq_grid <- c(0.001, 0.01, 0.1, 0.5)
+#~0.2 to ~0.8, 0.12 to 1.01
 source("utils2.R")
+phi_grid = c(0.1, 0.4, 0.7, 1.0)
+nu_grid = c(0.5, 1.0, 1.5, 1.75)
+deltasq_grid <- pick_deltasq(E_sigmasq = 0.09, 
+                             E_tausq = 0.01, 
+                             b = 0.09,
+                             #p_ls = c(0.2, 0.4, 0.6, 0.8))
+                             p_ls = c(0.05, 0.35, 0.65, 0.95))
+deltasq_grid
+
+#deltasq_grid <- c(0.001, 0.01, 0.1, 0.5)
+
 
 # # method 2 empirical variogram
 # source("utils2.R") # utils2.R is the testing code #
@@ -323,6 +354,7 @@ source("utils2.R")
 
 
 p = 64+2
+p = 3+2
 priors <- list(mu_beta = rep(0, p),
                inv_V_beta = 1/4 * diag(p),
                a_sigma = 2,
@@ -330,11 +362,13 @@ priors <- list(mu_beta = rep(0, p),
 K_fold = 10
 seed = 123
 
+pars1 <- paste0("V", 1:64)
+pars2 <- c("EVI", "IS", "RND")
 run_tag <- FALSE
 if(run_tag){
   
   CV_fit_LSE <- sp_stacking_K_fold(
-    X = as.matrix(combined_data_train[, c("x", "y", paste0("V", 1:64))]), 
+    X = as.matrix(combined_data_train[, c("x", "y", pars2)]), 
     y = combined_data_train$logAOD, 
     coords = coords_train,
     deltasq_grid = deltasq_grid, phi_grid = phi_grid,
@@ -352,9 +386,13 @@ if(run_tag){
   save(CV_fit_LSE, file = "./RDA/result/CV_fit_LSE.RData")
 }
 load("./RDA/result/CV_fit_LSE2.RData")
+load("./RDA_carc/result/CV_fit_LSE_fea3.RData")
 weights_LSE <- CV_fit_LSE$wts
+cbind(CV_fit_LSE$grid_all[CV_fit_LSE$wts>0.00001, ], 
+      CV_fit_LSE$wts[CV_fit_LSE$wts>0.00001])
 
-
+cbind(CV_fit_LP$grid_all[CV_fit_LP$wts>0.00001, ], 
+      CV_fit_LP$wts[CV_fit_LP$wts>0.00001])
 # Generate posterior samples and compute the 95% CI
 if(run_tag){
   t <- proc.time()
@@ -393,9 +431,11 @@ if(run_tag){
   save(pred_y_U_stack_sam_LSE, file = "./RDA/result/pred_y_U_stack_sam_LSE.RData")
 }
 load("./RDA/result/pred_y_U_stack_sam_LSE2.RData")
+load("./RDA_carc/result/pos_sam_LSE_fea3.RData")
+
 # Obtain 95% CIs
 y_U_CI_stack_LSE <- 
-  apply(pred_y_U_stack_sam_LSE, 1, 
+  apply(pos_sam_LSE$pred_y_U_stack_sam, 1, 
         function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
 
 sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
@@ -511,6 +551,7 @@ if(run_tag){
 }
 load("./RDA/result/pos_y_U_LP1.RData")
 load("./RDA/result/pred_y_U_stack_sam_LP1.RData")
+#load("./RDA_carc/result/pos_sam_LP_fea3_2.RData")
 
 stack_prob <- CV_fit_LP$wts[(CV_fit_LP$wts>0.00001)]
 num_counts <- c(rmultinom(n = 1, size = L*10, prob= stack_prob))
@@ -528,6 +569,11 @@ y_U_CI_stack_LP <-
   apply(pred_y_U_stack_sam_LP, 1, 
         function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
 
+y_U_CI_stack_LP <- 
+  apply(pos_sam_LP$pred_y_U_stack_sam, 1, 
+        function(x){exp(quantile(x, probs = c(0.005, 0.995)))})
+
+
 sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
 
@@ -539,3 +585,4 @@ hist(pred_y_U_stack_sam_LP[1,])
   sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
 # 0.8658392 ~86%.  #can reach 88%
 
+# 3feas: 95%CI 80.4 98%CI 88.5  99%CI can reach 0.93 

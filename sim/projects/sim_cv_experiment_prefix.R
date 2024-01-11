@@ -564,7 +564,7 @@ res1 = inla(y~x + f(s, model=spde1), data=inla.stack.data(stack1),
             family = family,
             control.family = control.family,
             control.predictor=list(A = inla.stack.A(stack1)),
-            quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+            quantiles=c(0.01, 0.025, 0.1, 0.5, 0.9, 0.975, 0.99),
             control.mode = list(restart = T, theta = initial.theta))
 
 sum((res1$summary.fitted.values[
@@ -596,7 +596,7 @@ res2 = inla(y~x + f(s, model=spde2), data=inla.stack.data(stack2),
             family = family,
             control.family = control.family,
             control.predictor=list(A = inla.stack.A(stack2)),
-            quantiles=c(0.01, 0.1, 0.5, 0.9, 0.99),
+            quantiles=c(0.01, 0.025, 0.1, 0.5, 0.9, 0.975, 0.99),
             control.mode = list(restart = T, theta = initial.theta))
 sum((res2$summary.fitted.values[
   inla.stack.index(stack2, "est")$data[-raw_data[[r]]$ind_mod], 

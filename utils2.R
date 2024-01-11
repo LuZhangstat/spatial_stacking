@@ -1092,13 +1092,14 @@ decay_est <-  function(eff_r_ls, nu_ls){
 
 stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900, 
                                 X.mod, y.mod, coords.mod, priors,
-                                X.ho, coords.ho, seed = 123){
+                                X.ho, coords.ho, seed = 123, 
+                                cutoff = 0.00001){
   # L1 sample for each candidate model
   # L2 sample size of the returned posterior
   set.seed(seed)
   t <- proc.time()
   j = 1
-  pick_mods <- Stack_fit$grid_all[(Stack_fit$wts>0.00001), ]
+  pick_mods <- Stack_fit$grid_all[(Stack_fit$wts>cutoff), ]
   pos_y_U <- c()
   pos_w_U <- c()
   pos_beta <- c()
@@ -1124,7 +1125,7 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
     cat("use time: ", (proc.time() - t1)[3], "\n")
   }
   proc.time() - t
-  stack_prob <- Stack_fit$wts[(Stack_fit$wts>0.00001)]
+  stack_prob <- Stack_fit$wts[(Stack_fit$wts > cutoff)]
   num_counts <- c(rmultinom(n = 1, size = L2, prob= stack_prob))
   pick_ind <- lapply(1:length(stack_prob), 
                      function(x){sort(sample.int(L1, num_counts[x], 
