@@ -47,7 +47,6 @@ QP_stacking_weight <- function(Y_hat, y){
   return(wts)
 }
 
-
 stacking_weights <- function(lpd_point){
   
   lpd_m = mean(lpd_point)
