@@ -138,7 +138,7 @@ Conj_predict <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick,
                          nu_pick, priors, X.ho, coords.ho){
   
   chol_nk = chol(geoR::matern(as.matrix(dist(coords.mod)), phi = 1/phi_pick,
-                        kappa = nu_pick))
+                              kappa = nu_pick))
   #chol_nk = chol(exp(- phi_pick * as.matrix(dist(coords.mod))))
   N.mod = nrow(coords.mod)
   w_expect = rep(NA, nrow(coords.mod) + nrow(coords.ho))
@@ -163,7 +163,7 @@ Conj_predict <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick,
     
     ## compute the expected w on unobserved locations ##
     C_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                    kappa = nu_pick)
+                          kappa = nu_pick)
     
     w_U_expect =  forwardsolve(chol_nk, mu_star[-(1:p)], transpose = TRUE, 
                                upper.tri = TRUE)
@@ -182,7 +182,7 @@ Conj_predict <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick,
     
     ## compute the expected w on unobserved locations ##
     C_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                    kappa = nu_pick)
+                          kappa = nu_pick)
     
     w_U_expect =  forwardsolve(chol_nk, mu_star, transpose = TRUE, 
                                upper.tri = TRUE)
@@ -201,7 +201,7 @@ Conj_lpd_old <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
   
   set.seed(seed)
   chol_nk = chol(geoR::matern(as.matrix(dist(coords.mod)), phi = 1/phi_pick,
-                        kappa = nu_pick))
+                              kappa = nu_pick))
   #chol_nk = chol(exp(- phi_pick * as.matrix(dist(coords.mod))))
   N.mod = nrow(coords.mod)
   N.ho = nrow(coords.ho)
@@ -244,7 +244,7 @@ Conj_lpd_old <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
     
     ## compute the expected w on unobserved locations ##
     C_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                    kappa = nu_pick)
+                          kappa = nu_pick)
     
     w_U_expect =  forwardsolve(chol_nk, gamma.sam[-(1:p), ], transpose = TRUE, 
                                upper.tri = TRUE)
@@ -287,7 +287,7 @@ Conj_lpd_old <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
     
     ## compute the expected w on unobserved locations ##
     C_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                    kappa = nu_pick)
+                          kappa = nu_pick)
     
     w_U_expect =  forwardsolve(chol_nk, gamma.sam, transpose = TRUE, 
                                upper.tri = TRUE)
@@ -313,7 +313,7 @@ Conj_pos_sam <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
   
   set.seed(seed)
   chol_nk = chol(geoR::matern(as.matrix(dist(coords.mod)), phi = 1/phi_pick,
-                        kappa = nu_pick))
+                              kappa = nu_pick))
   #chol_nk = chol(exp(- phi_pick * as.matrix(dist(coords.mod))))
   N.mod = nrow(coords.mod)
   N.ho = nrow(coords.ho)
@@ -356,7 +356,7 @@ Conj_pos_sam <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
     
     ## compute the expected w on unobserved locations ##
     C_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                    kappa = nu_pick)
+                          kappa = nu_pick)
     
     w_U_expect =  forwardsolve(chol_nk, gamma.sam[-(1:p), ], transpose = TRUE, 
                                upper.tri = TRUE)
@@ -392,7 +392,7 @@ Conj_pos_sam <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pi
     
     ## compute the expected w on unobserved locations ##
     C_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                    kappa = nu_pick)
+                          kappa = nu_pick)
     
     w_U_expect =  forwardsolve(chol_nk, gamma.sam, transpose = TRUE, 
                                upper.tri = TRUE)
@@ -414,10 +414,10 @@ Conj_lpd <- function(X.mod, y.mod, coords.mod, deltasq_pick, phi_pick, nu_pick,
                      MC = FALSE){
   set.seed(seed)
   chol_nk = chol(geoR::matern(as.matrix(dist(coords.mod)), phi = 1/phi_pick,
-                        kappa = nu_pick))
+                              kappa = nu_pick))
   invR_nk <- chol2inv(chol_nk)
   R_k_nk = geoR::matern(cdist(coords.ho, coords.mod), phi = 1/phi_pick,
-                  kappa = nu_pick)
+                        kappa = nu_pick)
   #chol_nk = chol(exp(- phi_pick * as.matrix(dist(coords.mod))))
   N.mod = nrow(coords.mod)
   N.ho = nrow(coords.ho)
@@ -518,7 +518,7 @@ expects_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
     diag_ele = c(rep(1 / theta.recover[ind, "tau.sq"], N.mod), rep(0, N.ho))
     Chol_Cov_w <- chol2inv(chol(
       geoR::matern(dist.M, phi = 1 / theta.recover[ind, "phi"], 
-             kappa = theta.recover[ind, "nu"]))) / 
+                   kappa = theta.recover[ind, "nu"]))) / 
       theta.recover[ind, "sigma.sq"] 
     
     diag(Chol_Cov_w)  =  diag(Chol_Cov_w) + diag_ele
@@ -603,10 +603,10 @@ sp_stacking_K_fold <- function(X, y, coords, deltasq_grid, phi_grid, nu_grid,
     nu_pick <- grid_phi_nv$nu[i1]
     for (k in 1:K_fold){
       invR_nk = chol2inv(chol(geoR::matern(as.matrix(dist(coords[-ind_k_list[[k]], ])),
-                                     phi = 1 / phi_pick, kappa = nu_pick)))
+                                           phi = 1 / phi_pick, kappa = nu_pick)))
       R_k_nk = geoR::matern(cdist(coords[ind_k_list[[k]], ],
-                            coords[-ind_k_list[[k]], ]),
-                      phi = 1 / phi_pick, kappa = nu_pick)
+                                  coords[-ind_k_list[[k]], ]),
+                            phi = 1 / phi_pick, kappa = nu_pick)
       for (i2 in 1:L_grid_deltasq){ # should use parallel computing
         deltasq_pick <- deltasq_grid[i2]
         # Compute Cholesky decomposition of M_*^{-1}
@@ -1067,10 +1067,12 @@ sp_stacking_K_fold3 <- function(X, y, coords, all_prefix_ls,
   }
 }
 
-stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900, 
+stacking_pos_sample <- function(Stack_fit, L1 = 600, L2 = 900, 
                                 X.mod, y.mod, coords.mod, priors,
                                 X.ho, coords.ho, seed = 123, 
-                                cutoff = 0.00001){
+                                cutoff = 0.00001, 
+                                recover_w_obs = FALSE,
+                                recover_w_U = FALSE){
   # L1 sample for each candidate model
   # L2 sample size of the returned posterior
   set.seed(seed)
@@ -1078,9 +1080,15 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
   j = 1
   pick_mods <- Stack_fit$grid_all[(Stack_fit$wts>cutoff), ]
   pos_y_U <- c()
-  pos_w_U <- c()
   pos_beta <- c()
   pos_sigmasq <- c()
+  pos_tausq <- c()
+  if(recover_w_U){
+    pos_w_U <- c()
+  }else{pred_w_U_stack_sam = NULL}
+  if(recover_w_obs){
+    pos_w_obs <- c()
+  }else{pred_w_obs_stack_sam = NULL}
   cat("No. of models:", length(pick_mods$deltasq), "\n")
   p = ncol(X.mod)
   for (j in 1:length(pick_mods$deltasq)){
@@ -1096,9 +1104,15 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
                    coords.ho = coords.ho,
                    L = L1)
     pos_y_U[[j]] <- pred_pos_sam$y_U_expect
-    pos_w_U[[j]] <- pred_pos_sam$w_U_expect
     pos_sigmasq[[j]] <- pred_pos_sam$sigma.sq.sam
+    pos_tausq[[j]] <- pred_pos_sam$sigma.sq.sam * pick_mods$deltasq[j]
     pos_beta[[j]] <- pred_pos_sam$gamma.sam[1:p, ]
+    if(recover_w_U){
+      pos_w_U[[j]] <- pred_pos_sam$w_U_expect
+    }
+    if(recover_w_obs){
+      pos_w_obs[[j]] <- pred_pos_sam$gamma.sam[-(1:p), ]
+    }
     cat("use time: ", (proc.time() - t1)[3], "\n")
   }
   proc.time() - t
@@ -1110,29 +1124,47 @@ stacking_pos_sample <- function(Stack_fit, L1 = 300, L2 = 900,
   #save the predictive samples for y
   if(length(pick_mods$deltasq) == 1){
     pred_y_U_stack_sam <- pos_y_U[[1]][, pick_ind[[1]]]
-    pred_w_U_stack_sam <- pos_w_U[[1]][, pick_ind[[1]]]
     pred_beta_stack_sam <- pos_beta[[1]][, pick_ind[[1]]]
+    if(recover_w_U){
+      pred_w_U_stack_sam <- pos_w_U[[1]][, pick_ind[[1]]]
+    }
+    if(recover_w_obs){
+      pred_w_obs_stack_sam <- pos_w_obs[[1]][, pick_ind[[1]]]
+    }
   }else{
     pred_y_U_stack_sam <- do.call(cbind,
                                   sapply(1:length(stack_prob), function(x){
                                     pos_y_U[[x]][, pick_ind[[x]]]
                                   }))
-    pred_w_U_stack_sam <- do.call(cbind,
-                                  sapply(1:length(stack_prob), function(x){
-                                    pos_w_U[[x]][, pick_ind[[x]]]
-                                  }))
     pred_beta_stack_sam <- do.call(cbind,
                                    sapply(1:length(stack_prob), function(x){
                                      pos_beta[[x]][, pick_ind[[x]]]
                                    }))
+    if(recover_w_U){
+      pred_w_U_stack_sam <- do.call(cbind,
+                                    sapply(1:length(stack_prob), function(x){
+                                      pos_w_U[[x]][, pick_ind[[x]]]
+                                    }))
+    }
+    if(recover_w_obs){
+      pred_w_obs_stack_sam <- do.call(cbind,
+                                      sapply(1:length(stack_prob), function(x){
+                                        pos_w_obs[[x]][, pick_ind[[x]]]
+                                      }))
+    }
   }
   sigmasq_sam <- unlist(sapply(1:length(stack_prob), function(x){
     pos_sigmasq[[x]][pick_ind[[x]]]
   }))
-  return(list(sigmasq_sam = sigmasq_sam, 
+  tausq_sam <- unlist(sapply(1:length(stack_prob), function(x){
+    pos_tausq[[x]][pick_ind[[x]]]
+  }))
+  
+  return(list(sigmasq_sam = sigmasq_sam, tausq_sam = tausq_sam,
               pred_y_U_stack_sam = pred_y_U_stack_sam,
+              pred_beta_stack_sam = pred_beta_stack_sam,
               pred_w_U_stack_sam = pred_w_U_stack_sam,
-              pred_beta_stack_sam = pred_beta_stack_sam))
+              pred_w_obs_stack_sam = pred_w_obs_stack_sam))
 }
 
 
