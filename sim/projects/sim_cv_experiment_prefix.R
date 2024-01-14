@@ -394,15 +394,7 @@ individual_y_compar1 <-
               type_names = c("MCMC", "default", "MCMC+Stacking"), 
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = y[-ind_mod][pick_indi[1]],
-              yname = expression(y(s[50])),
-              INLA_CI = c(unlist(res1$summary.fitted.values[
-                inla.stack.index(stack1, "est")$
-                  data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
-                c("0.01quant", "0.99quant")]))
-              # INLA_CI = c(unlist(res2$summary.fitted.values[
-              #   inla.stack.index(stack2, "est")$
-              #     data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
-              #   c("0.01quant", "0.99quant")]))
+              yname = expression(y(s[50]))
   )
 
 draws_ls2 <- c()
@@ -419,15 +411,7 @@ individual_y_compar2 <-
               type_names = c("MCMC", "default", "MCMC+stacking"), 
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = y[-ind_mod][pick_indi[2]],
-              yname = expression(y(s[90])),
-              INLA_CI = c(unlist(res1$summary.fitted.values[
-                inla.stack.index(stack1, "est")$
-                  data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
-                c("0.01quant", "0.99quant")]))
-              # INLA_CI = c(unlist(res2$summary.fitted.values[
-              #   inla.stack.index(stack2, "est")$
-              #     data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
-              #   c("0.01quant", "0.99quant")]))
+              yname = expression(y(s[90]))
   )
 
 print(individual_y_compar1)
@@ -462,10 +446,6 @@ individual_w_compar1 <-
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[-ind_mod][pick_indi[1]]+raw_data[[r]]$beta[1],
               yname = expression(w(s[50])+beta[1])
-              # INLA_CI = c(unlist(res2$summary.fitted.values[
-              #   inla.stack.index(stack2, "est")$
-              #     data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
-              #   c("0.01quant", "0.99quant")]))
   )
 
 draws_ls2 <- c()
@@ -489,10 +469,6 @@ individual_w_compar2 <-
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[-ind_mod][pick_indi[2]]+raw_data[[r]]$beta[1],
               yname = expression(w(s[90])+beta[1])
-              # INLA_CI = c(unlist(res2$summary.fitted.values[
-              #   inla.stack.index(stack2, "est")$
-              #     data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
-              #   c("0.01quant", "0.99quant")]))
   )
 
 print(individual_w_compar1)
@@ -528,10 +504,6 @@ individual_w_compar1 <-
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[pick_indi[1]]+raw_data[[r]]$beta[1],
               yname = expression(w(s[50])+beta[1])
-              # INLA_CI = c(unlist(res2$summary.fitted.values[
-              #   inla.stack.index(stack2, "est")$
-              #     data[-raw_data[[r]]$ind_mod][pick_indi[1]], 
-              #   c("0.01quant", "0.99quant")]))
   )
 
 draws_ls2 <- c()
@@ -555,10 +527,6 @@ individual_w_compar2 <-
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[pick_indi[2]]+raw_data[[r]]$beta[1],
               yname = expression(w(s[90])+beta[1])
-              # INLA_CI = c(unlist(res2$summary.fitted.values[
-              #   inla.stack.index(stack2, "est")$
-              #     data[-raw_data[[r]]$ind_mod][pick_indi[2]], 
-              #   c("0.01quant", "0.99quant")]))
   )
 
 print(individual_w_compar1)
