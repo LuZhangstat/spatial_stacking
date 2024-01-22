@@ -28,7 +28,7 @@ df_aod <- data.frame(AOD = c(LA_AOD), x = x_ind, y = y_ind)
 df_aod %>% glimpse()
 summary(df_aod)
 qqnorm(df_aod$AOD)        # the data has 0 for missing value
-sum(df_aod$AOD == 0)      # there are 997 pixels have AOD values equal to 0. 
+sum(df_aod$AOD == 0)      # there are 997 pixels having AOD values equal to 0. 
 df_aod <- df_aod %>% filter(AOD > 0)   # Remove 0 from the data
 df_aod %>% glimpse()
 # our data has 16,003 pixles
@@ -432,6 +432,11 @@ cat("LP R2:")
   sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
 #0.8079694
 
+# correlaton
+cor(log(combined_data_test$AOD), rowMeans(pos_sam_LP$pred_y_U_stack_sam))
+cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam)))
+#0.9065457
+
 ## Check CI coverage ##
 # 95% CI. coverage
 y_U_CI_stack_LSE <- 
@@ -468,3 +473,6 @@ cat("LP 99% CI coverage: ")
 sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
 # 0.9380125
+
+cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam)))
+# 0.914

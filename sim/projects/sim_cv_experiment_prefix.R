@@ -17,7 +17,7 @@ source("utils.R") # utils2.R is the testing code #
 ############################################################
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-load("./sim_hoffman2/results/sim2_1.RData")
+load("./sim_carc/results/sim2_1.RData")
 # default method #
 sim_ind = 2
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
@@ -86,7 +86,7 @@ y_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((y_U_CI_stack_LP[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.98 for sim1 r = 8; 0.88 for sim2 r = 4 
+# 0.96 for sim1 r = 8; 0.88 for sim2 r = 4 
 
 cat("98%CI coverage:")
 y_U_CI_stack_LP <- 
@@ -94,7 +94,7 @@ y_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((y_U_CI_stack_LP[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.98 for sim1 r = 8; 0.91 for sim 2 r = 4
+#0.98 for sim1 r = 8; 0.93 for sim 2 r = 4
 
 # for w #
 cat("obs w 95%CI coverage:")
@@ -103,7 +103,7 @@ w_obs_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((w_obs_CI_stack_LP[1, ] < w[ind_mod]) & 
       (w_obs_CI_stack_LP[2, ] > w[ind_mod]))/length(w[raw_data[[r]]$ind_mod])
-# 1 for sim1 r=8; 0.955 for sim2 r = 4 
+# 1 for sim1 r=8; 0.935 for sim2 r = 4 
 
 cat("unobs w 95%CI coverage:")
 w_U_CI_stack_LP <- 
@@ -111,7 +111,7 @@ w_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((w_U_CI_stack_LP[1, ] < w[-ind_mod]) & 
       (w_U_CI_stack_LP[2, ] > w[-ind_mod]))/length(w[-raw_data[[r]]$ind_mod])
-# 1 for sim1 r = 8; 0.79 for sim2 r = 4 
+# 1 for sim1 r = 8; 0.68 for sim2 r = 4 
 
 # INLA #
 df = data.frame(y=c(raw_data[[r]]$y[raw_data[[r]]$ind_mod], rep(NA, 100)), 
@@ -163,7 +163,7 @@ sum((res1$summary.fitted.values[
     (res1$summary.fitted.values[
       inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
       "0.975quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.51 for sim1 r = 8; 0.61 for sim2 with r = 4
+# 0.52 for sim1 r = 8; 0.55 for sim2 with r = 4
 
 cat("98%CI coverage:")
 sum((res1$summary.fitted.values[
@@ -172,7 +172,7 @@ sum((res1$summary.fitted.values[
     (res1$summary.fitted.values[
       inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
       "0.99quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.55 for sim1 r = 8; 0.66 for sim2 r = 4
+# 0.58 for sim1 r = 8; 0.62 for sim2 r = 4
 
 # test 2: posterior sample from marginal distribution #
 pick_ind <- seq(300, 1000, by = 11)
@@ -220,7 +220,7 @@ y_U_CI_stack_LP_P <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.97 for sim1 r=8; 0.88 for sim2 r = 4 
+#0.96 for sim1 r=8; 0.88 for sim2 r = 4 
 
 cat("98%CI coverage:")
 y_U_CI_stack_LP_P <- 
@@ -228,7 +228,7 @@ y_U_CI_stack_LP_P <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.98 for sim1 r=8; 0.92 for sim 2 r = 4
+#0.98 for sim1 r=8; 0.93 for sim 2 r = 4
 
 
 # compare sigmasq #
@@ -321,7 +321,7 @@ pos_y_U_CI_P <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) & 
       (pos_y_U_CI_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.98 for sim1 r=8;  0.89 for sim2 r = 4 
+# 0.96 for sim1 r=8;  0.89 for sim2 r = 4 
 
 cat("98%CI coverage:")
 pos_y_U_CI_P <- 
@@ -329,7 +329,7 @@ pos_y_U_CI_P <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) & 
       (pos_y_U_CI_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.99 for sim1 r=8; 0.95 for sim 2 r = 4
+#0.99 for sim1 r=8; 0.94 for sim 2 r = 4
 
 
 # compare beta1 #
@@ -699,7 +699,7 @@ pts_w_U <- ggplot(combined_data, aes(x = x, y = mean)) +
   labs(x = "w + intercept on unobserved locations", y = "mean and 95%CI")
 pts_w_U
 ggsave(paste0("./sim/pics/w_U_95CIsim", sim_ind, "_r", r, ".png"),
-       plot = pts_w_obs,
+       plot = pts_w_U,
        width = 8, height = 3, units = "in", dpi = 600)
 
 

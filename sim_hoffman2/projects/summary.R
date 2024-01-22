@@ -5,15 +5,15 @@ library(spBayes)
 library(ggplot2)
 library("gridExtra")
 library("coda")
-
+source("utils.R")
 # colorblind-friendly palettes
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 2 # simulation index 1 or 2
+sim_ind = 1 # simulation index 1 or 2
 
 
-load(paste0("./sim_hoffman2/results/sim", sim_ind, "_1.Rdata"))
+load(paste0("./sim_carc/results/sim", sim_ind, "_1.Rdata"))
 K_fold = 10
 N_list = length(samplesize_ls)
 N_sim = 60
@@ -31,7 +31,12 @@ SPE_w_M0 = matrix(NA, nrow = N_sim, ncol = N_list)
 SPE_w_MCMC = matrix(NA, nrow = N_sim, ncol = N_list)
 
 ## recover the estimated hyper-parameters ##
-deltasq_grid <- c(0.1, 0.5, 1, 2)
+deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq, 
+                             E_tausq = raw_data[[1]]$tau.sq, 
+                             b = max(raw_data[[1]]$sigma.sq, 
+                                     raw_data[[1]]$tau.sq),
+                              p_ls = c(0.05, 0.35, 0.65, 0.95))
+deltasq_grid
 phi_grid = c(3, 14, 25, 36)   #c(3, 9, 15, 21) 3/(0.6*sqrt(2)) to 3/(0.1*sqrt(2)) phi_grid = c(3, 13, 23, 33)
 nu_grid = c(0.5, 1, 1.5, 1.75)
 grid_all <- expand.grid(deltasq_grid, phi_grid, nu_grid)
@@ -46,9 +51,10 @@ ESS_MCMC_M <- array(NA, dim = c(N_sim, N_list, 3))
 dimnames(ESS_MCMC_M)[[3]] <- c("phi", "nu", "deltasq")
 
 
-for(i in 1:N_sim){
-  filename <- paste0("./sim_hoffman2/results/sim", sim_ind, "_", i, ".Rdata")
+for(i in (1:N_sim)){ #[c(-49, -50, -53, -54)] for sim1
+  filename <- paste0("./sim_carc/results/sim", sim_ind, "_", i, ".Rdata")
   load(filename)
+  #print(DIV_matrix)
   
   SPE_stack_LP[i, ] = DIV_matrix[, "SPE_stack_LP"]
   SPE_stack_LSE[i, ] = DIV_matrix[, "SPE_stack_LSE"]
@@ -122,7 +128,7 @@ p_summary <- ggplot(dat_check, aes(x = N_sample, y = value, color = label)) +
 
 p_summary
 
-ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"), 
+ggsave(paste0("./sim_carc/pics/CVexperiment_sim", sim_ind, ".png"), 
        plot = p_summary, 
        width = 6.5, height = 4.5, units = "in", dpi = 600)
 
@@ -130,11 +136,9 @@ ggsave(paste0("./sim_hoffman2/pics/CVexperiment_sim", sim_ind, ".png"),
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
 
-sum(weights_nonzero_LSE) / (64 * 8) # 3.57 in sim1; 3.85 in sim2
-# 3.6 in sim1; 3.4 in sim2
+sum(weights_nonzero_LSE) / (64 * 8) # 3.32 in sim1; 3.85 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 4.31 in sim1; 4.66 in sim2
-# 4.1 in sim1; 4.3 in sim2
+sum(weights_nonzero_LP) / (64 * 8) # 3.86 in sim1; 4.66 in sim2
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -157,7 +161,7 @@ p_nonzero_counts <-
 p_nonzero_counts 
 
 ## Obviously, stacking based on LP has more nonzero weights than stacking based on LSE
-ggsave(paste0("./sim_hoffman2/pics/nonzero_check_sim", sim_ind, ".png"), 
+ggsave(paste0("./sim_carc/pics/nonzero_check_sim", sim_ind, ".png"), 
        plot = p_nonzero_counts, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
@@ -197,7 +201,7 @@ p_est_phi <-
   geom_hline(yintercept = raw_data[[1]]$phi, linetype="dashed", color = "red")
 p_est_phi
 # the estimation of phi is not reliable
-ggsave(paste0("./sim_hoffman2/pics/est_phi_sim", sim_ind, ".png"), 
+ggsave(paste0("./sim_carc/pics/est_phi_sim", sim_ind, ".png"), 
        plot = p_est_phi, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
@@ -235,7 +239,7 @@ p_est_nu <-
   geom_hline(yintercept = raw_data[[1]]$nu, linetype="dashed", color = "red")
 p_est_nu
 # the estimation of phi is not reliable
-ggsave(paste0("./sim_hoffman2/pics/est_nu_sim", sim_ind, ".png"), 
+ggsave(paste0("./sim_carc/pics/est_nu_sim", sim_ind, ".png"), 
        plot = p_est_nu, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
@@ -276,7 +280,7 @@ p_est_deltasq <-
                            linetype="dashed", color = "red")
 p_est_deltasq
 # the estimation of phi is not reliable
-ggsave(paste0("./sim_hoffman2/pics/est_deltasq_sim", sim_ind, ".png"), 
+ggsave(paste0("./sim_carc/pics/est_deltasq_sim", sim_ind, ".png"), 
        plot = p_est_deltasq, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
@@ -304,7 +308,7 @@ p_ESS_MCMC<-
   xlab("sample size") + ylab("MCMC ESS") + 
   scale_colour_manual(values=c("#009E73", "#F0E442", "#0072B2")) 
 p_ESS_MCMC
-ggsave(paste0("./sim_hoffman2/pics/ESS_MCMC_sim", sim_ind, ".png"), 
+ggsave(paste0("./sim_carc/pics/ESS_MCMC_sim", sim_ind, ".png"), 
        plot = p_ESS_MCMC, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
@@ -312,7 +316,7 @@ ggsave(paste0("./sim_hoffman2/pics/ESS_MCMC_sim", sim_ind, ".png"),
 
 
 ## plot the interpolated map of the latent process ##
-load(paste0("./sim_hoffman2/results/sim", sim_ind, "_10.Rdata"))
+load(paste0("./sim_carc/results/sim", sim_ind, "_10.Rdata"))
 ## check the plots of latent process ##
 library(coda)
 library(spBayes)
@@ -343,7 +347,7 @@ zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]],
 
 
 ## plot the interpolated maps of latent process on all locations ##
-png(paste0("./sim_hoffman2/pics/w_all_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_all_sim", sim_ind, ".png"), 
     width = 600, height = 400, units = "px", pointsize = 16)
 # setEPS()
 # postscript("./pic/map-w-true.eps")
@@ -389,7 +393,7 @@ dev.off()
 width <- 300
 height <- 300
 pointsize <- 6
-png(paste0("./sim_hoffman2/pics/w_raw_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_raw_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 par(mfrow = c(1, 1))
 i <- as.image.SpatialGridDataFrame(surf.raw)
@@ -401,7 +405,7 @@ image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_LSE_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_LSE_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i1 <- as.image.SpatialGridDataFrame(surf.LSE)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -412,7 +416,7 @@ image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_LP_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_LP_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i2 <- as.image.SpatialGridDataFrame(surf.LP)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -423,7 +427,7 @@ image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_M0_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_M0_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i3 <- as.image.SpatialGridDataFrame(surf.M0)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -434,7 +438,7 @@ image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_MCMC_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_MCMC_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -469,7 +473,7 @@ xlim <- c(0, 1.13)
 zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
                 surf.M0[["z"]], surf.MCMC[["z"]]))
 
-png(paste0("./sim_hoffman2/pics/w_pred_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_pred_sim", sim_ind, ".png"), 
     width = 600, height = 400, units = "px", pointsize = 16)
 par(mfrow = c(2, 3))
 i <- as.image.SpatialGridDataFrame(surf.raw)
@@ -511,7 +515,7 @@ dev.off()
 
 
 ## generate the pictures one by one ##
-png(paste0("./sim_hoffman2/pics/w_pred_raw_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_pred_raw_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 par(mfrow = c(1, 1))
 i <- as.image.SpatialGridDataFrame(surf.raw)
@@ -523,7 +527,7 @@ image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_pred_LSE_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_pred_LSE_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i1 <- as.image.SpatialGridDataFrame(surf.LSE)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -534,7 +538,7 @@ image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_pred_LP_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_pred_LP_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i2 <- as.image.SpatialGridDataFrame(surf.LP)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -545,7 +549,7 @@ image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_pred_M0_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_pred_M0_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i3 <- as.image.SpatialGridDataFrame(surf.M0)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -556,7 +560,7 @@ image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/w_pred_MCMC_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_pred_MCMC_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -600,7 +604,7 @@ surf.brks <-
 col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
 xlim <- c(0, 1.13)
 
-png(paste0("./sim_hoffman2/pics/w_xb_pred_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/w_xb_pred_sim", sim_ind, ".png"), 
     width = 600, height = 400, units = "px", pointsize = 16)
 par(mfrow = c(2, 3))
 
@@ -654,7 +658,7 @@ dev.off()
 width <- 300
 height <- 300
 pointsize <- 6
-png(paste0("./sim_hoffman2/pics/y_held_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/y_held_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 par(mfrow = c(1, 1))
 i0 <- as.image.SpatialGridDataFrame(surf.rawy)
@@ -666,7 +670,7 @@ image.plot(i0, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/y_held_denoise_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/y_held_denoise_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 par(mfrow = c(1, 1))
 i <- as.image.SpatialGridDataFrame(surf.raw)
@@ -678,7 +682,7 @@ image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/y_pred_LSE_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/y_pred_LSE_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i1 <- as.image.SpatialGridDataFrame(surf.LSE)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -689,7 +693,7 @@ image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/y_pred_LP_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/y_pred_LP_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i2 <- as.image.SpatialGridDataFrame(surf.LP)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -700,7 +704,7 @@ image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/y_pred_M0_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/y_pred_M0_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i3 <- as.image.SpatialGridDataFrame(surf.M0)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
@@ -711,7 +715,7 @@ image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
            axis.args=list(cex.axis=2))
 dev.off()
 
-png(paste0("./sim_hoffman2/pics/y_pred_MCMC_sim", sim_ind, ".png"), 
+png(paste0("./sim_carc/pics/y_pred_MCMC_sim", sim_ind, ".png"), 
     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
 i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
 plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
