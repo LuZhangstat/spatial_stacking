@@ -8,7 +8,8 @@ Roadmap
 |:------ |:----------- |
 |RDA/projects| Code for the western experimental forest inventory data analysis in Section 5|
 |sim| Code for assumption checking, and example R code for simulation studies|
-|sim_hoffman2| Code submitted to cluster for simulation studies in Section 4|
+|sim_carc| Code submitted to cluster for simulation studies in Section 4|
+|sim_hoffman2| Old Code submitted to cluster for simulation studies in Section 4|
 |sim_julia| Julia code for running time comparison in Section 4.3|
 |utils| R functions required in running projects |
 
@@ -22,7 +23,7 @@ Authors
 
 Licensing
 ---------
-* Code &copy; 2023, Lu Zhang, licensed under [BSD (3-clause)](https://opensource.org/licenses/BSD-3-Clause).
+* Code &copy; 2024, Lu Zhang, licensed under [BSD (3-clause)](https://opensource.org/licenses/BSD-3-Clause).
 
 Notes
 ---------
