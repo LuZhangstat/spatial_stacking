@@ -42,8 +42,8 @@ covariates_df$x <- x_ind
 covariates_df$y <- y_ind
 # the original 3 features #
 covariates_fea3_matrix <- array(data = LA_xfea3, 
-                           dim = c(dim(LA_xfea3)[1] * dim(LA_xfea3)[2], 
-                                   dim(LA_xfea3)[3]))
+                                dim = c(dim(LA_xfea3)[1] * dim(LA_xfea3)[2], 
+                                        dim(LA_xfea3)[3]))
 fea3_df <- as.data.frame(covariates_fea3_matrix)
 fea3_df$x <- x_ind
 fea3_df$y <- y_ind
@@ -149,7 +149,7 @@ aod_p <- aod_p + guides(fill = "none")
 # Plot the masked image #
 aod_mask <- ggplot() + 
   coord_fixed(#ratio = aspect_ratio, 
-              xlim = x_range, ylim = y_range) +
+    xlim = x_range, ylim = y_range) +
   geom_tile(data = combined_data,         # Add the image layer
             aes(x = x, y = y, fill = log(AOD))) +
   geom_tile(data = mask_df,        # Overlay the mask layer
@@ -173,7 +173,7 @@ aod_mask
 
 aod_test <- ggplot() + 
   coord_fixed(#ratio = aspect_ratio, 
-              xlim = x_range, ylim = y_range) +
+    xlim = x_range, ylim = y_range) +
   geom_tile(data = combined_data,         # Add the image layer
             aes(x = x, y = y, fill = log(AOD))) +
   geom_tile(data = mask_df,        # Overlay the mask layer
@@ -343,7 +343,7 @@ deltasq_grid <- pick_deltasq(E_sigmasq = 0.088, E_tausq = 0.01, b = 0.088,
                              p_ls = c(0.05, 0.35, 0.65, 0.95))
 deltasq_grid
 
-p = 3+2
+p = 3+2+1
 priors <- list(mu_beta = rep(0, p),
                inv_V_beta = 1/4 * diag(p),
                a_sigma = 2,
@@ -357,7 +357,8 @@ run_tag <- FALSE
 # fit stacking of means #
 if(run_tag){
   CV_fit_LSE <- sp_stacking_K_fold(
-    X = as.matrix(combined_data_train[, c("x", "y", "EVI", "IS", "RND")]), 
+    X = cbind(1, as.matrix(
+      combined_data_train[, c("x", "y", "EVI", "IS", "RND")])), 
     y = combined_data_train$logAOD, 
     coords = coords_train,
     deltasq_grid = deltasq_grid, phi_grid = phi_grid,
@@ -370,15 +371,16 @@ if(run_tag){
         CV_fit_LSE$wts[CV_fit_LSE$wts>0.00001])
   
   pos_sam_LSE <- 
-    stacking_pos_sample(Stack_fit = CV_fit_LSE, L1 = 600, L2 = 1800, 
-                        X.mod = as.matrix(
-                          combined_data_train[, c("x", "y", "EVI", "IS", "RND")]),
-                        y.mod = combined_data_train$logAOD, 
-                        coords.mod = coords_train, priors = priors,
-                        X.ho = as.matrix(
-                          combined_data_test[, c("x", "y", "EVI", "IS", "RND")]), 
-                        coords.ho = as.matrix(
-                          combined_data_test[, c("x", "y")]), seed = 123)
+    stacking_pos_sample(
+      Stack_fit = CV_fit_LSE, L1 = 600, L2 = 1800, 
+      X.mod = cbind(1, as.matrix(
+        combined_data_train[, c("x", "y", "EVI", "IS", "RND")])),
+      y.mod = combined_data_train$logAOD, 
+      coords.mod = coords_train, priors = priors,
+      X.ho = cbind(1, as.matrix(
+        combined_data_test[, c("x", "y", "EVI", "IS", "RND")])), 
+      coords.ho = as.matrix(
+        combined_data_test[, c("x", "y")]), seed = 123)
   
   save(pos_sam_LSE, file = "./RDA/result/pos_sam_LSE_fea3.RData")
 }else{
@@ -391,7 +393,8 @@ cbind(CV_fit_LSE$grid_all[CV_fit_LSE$wts>0.00001, ],
 # fit stacking of predictive densities #
 if(run_tag){
   CV_fit_LP <- sp_stacking_K_fold(
-    X = as.matrix(combined_data_train[, c("x", "y", "EVI", "IS", "RND")]), 
+    X = cbind(1, as.matrix(
+      combined_data_train[, c("x", "y", "EVI", "IS", "RND")])), 
     y = combined_data_train$logAOD, 
     coords = coords_train,
     deltasq_grid = deltasq_grid, phi_grid = phi_grid,
@@ -403,15 +406,16 @@ if(run_tag){
         CV_fit_LP$wts[CV_fit_LP$wts>0.00001])
   
   pos_sam_LP <- 
-    stacking_pos_sample(Stack_fit = CV_fit_LP, L1 = 1000, L2 = 3000, 
-                        X.mod = as.matrix(
-                          combined_data_train[, c("x", "y", "EVI", "IS", "RND")]),
-                        y.mod = combined_data_train$logAOD, 
-                        coords.mod = coords_train, priors = priors,
-                        X.ho = as.matrix(
-                          combined_data_test[, c("x", "y", "EVI", "IS", "RND")]), 
-                        coords.ho = as.matrix(
-                          combined_data_test[, c("x", "y")]), seed = 123)
+    stacking_pos_sample(
+      Stack_fit = CV_fit_LP, L1 = 1000, L2 = 3000, 
+      X.mod = cbind(1, as.matrix(
+        combined_data_train[, c("x", "y", "EVI", "IS", "RND")])),
+      y.mod = combined_data_train$logAOD, 
+      coords.mod = coords_train, priors = priors,
+      X.ho = cbind(1, as.matrix(
+        combined_data_test[, c("x", "y", "EVI", "IS", "RND")])), 
+      coords.ho = as.matrix(
+        combined_data_test[, c("x", "y")]), seed = 123)
   
   save(pos_sam_LP, file = "./RDA/result/pos_sam_LP_fea3.RData")
 }else{
@@ -421,23 +425,16 @@ if(run_tag){
 cbind(CV_fit_LP$grid_all[CV_fit_LP$wts>0.00001, ], 
       CV_fit_LP$wts[CV_fit_LP$wts>0.00001])
 
-## Check R^2 ##
+
+## For LSE ##
 cat("LSE R2:")
 1 - sum((rowMeans(pos_sam_LSE$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
   sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
 #0.820506
 
-cat("LP R2:")
-1 - sum((rowMeans(pos_sam_LP$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
-  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
-#0.8079694
+cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam)))
+# 0.914
 
-# correlaton
-cor(log(combined_data_test$AOD), rowMeans(pos_sam_LP$pred_y_U_stack_sam))
-cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam)))
-#0.9065457
-
-## Check CI coverage ##
 # 95% CI. coverage
 y_U_CI_stack_LSE <- 
   apply(pos_sam_LSE$pred_y_U_stack_sam, 1, 
@@ -455,6 +452,27 @@ cat("LSE 99% CI coverage: ")
 sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
 # 0.9088278
+
+# root-mean-squared error (RMSE)
+sqrt(mean((combined_data_test$AOD - 
+             exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam)))^2))
+# 0.01087614
+
+# mean absolute error (MAE)
+mean(abs(combined_data_test$AOD - 
+           exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam))))
+# 0.007558968
+
+
+## For LP ##
+cat("LP R2:")
+1 - sum((rowMeans(pos_sam_LP$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
+  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
+#0.8079694
+
+# correlaton
+cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam)))
+#0.9065457
 
 # 95% CI. coverage
 y_U_CI_stack_LP <- 
@@ -474,5 +492,237 @@ sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) &
       (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
 # 0.9380125
 
-cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam)))
-# 0.914
+# root-mean-squared error (RMSE)
+sqrt(mean((combined_data_test$AOD - 
+             exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam)))^2))
+#0.011
+
+# mean absolute error (MAE)
+mean(abs(combined_data_test$AOD - 
+           exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam))))
+# 0.007808159
+
+
+# fit Bayesian linear regression model #
+library(brms)
+library(bayesplot)
+options(mc.cores = parallel::detectCores() - 2)
+prior1 <- prior(normal(0,2), class = b) +
+  prior(cauchy(0, 0.5), class = sigma)
+fit_lm <- brm(logAOD ~ x + y + EVI + IS + RND,
+              data = combined_data_train, family = gaussian(), 
+              prior = prior1)
+summary(fit_lm)
+predicted_samples_lm <- 
+  posterior_predict(fit_lm, newdata = combined_data_test)
+
+# correlaton
+cor(combined_data_test$AOD, exp(colMeans(predicted_samples_lm)))
+#0.6929903
+
+# 95% CI. coverage
+y_U_CI_lm <- 
+  apply(predicted_samples_lm, 2, 
+        function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
+cat("BLM 95% CI coverage: ")
+sum((y_U_CI_lm[1, ] < combined_data_test$AOD) & 
+      (y_U_CI_lm[2, ] > combined_data_test$AOD))/4146
+# 0.9512783
+
+# 95% CI. coverage
+y_U_CI_lm <- 
+  apply(predicted_samples_lm, 2, 
+        function(x){exp(quantile(x, probs = c(0.005, 0.9995)))})
+cat("LP 99% CI coverage: ")
+sum((y_U_CI_lm[1, ] < combined_data_test$AOD) & 
+      (y_U_CI_lm[2, ] > combined_data_test$AOD))/4146
+# 0.9937289
+
+# root-mean-squared error (RMSE)
+sqrt(mean((combined_data_test$AOD - 
+             exp(colMeans(predicted_samples_lm)))^2))
+#0.01970975
+
+# mean absolute error (MAE)
+mean(abs(combined_data_test$AOD - 
+           exp(colMeans(predicted_samples_lm))))
+# 0.01467967
+
+#################################
+## compare the predicted plots ##
+#################################
+
+pick_show <- which(combined_data_test$x>55 & combined_data_test$x<140 & 
+        combined_data_test$y>20 & combined_data_test$y<80)
+combined_data_test$logAOD = log(combined_data_test$AOD)
+x_range <- c(55, 140); y_range <- c(20, 80)
+
+aod_test <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+    xlim = x_range, ylim = y_range) +
+  geom_tile(data = combined_data_test[pick_show, ],         # Add the image layer
+            aes(x = x, y = y, fill = log(AOD))) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod),
+                       name = "Log AOD") +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Testing (raw data)") 
+aod_p_legend <- gtable_filter(ggplot_gtable(ggplot_build(aod_test)), "guide-box")
+aod_test <- aod_test + guides(fill = "none")
+aod_test
+
+LSE_data <- data.frame(logAOD = rowMeans(pos_sam_LSE$pred_y_U_stack_sam),
+                       x = combined_data_test$x,
+                       y = combined_data_test$y)
+aod_LSE <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+    xlim = x_range, ylim = y_range) +
+  geom_tile(data = LSE_data[pick_show,],         # Add the image layer
+            aes(x = x, y = y, fill = logAOD)) +
+  geom_tile(data = mask_df,        # Overlay the mask layer
+            aes(x = x, y = y), fill = "white", 
+            alpha = ifelse(mask_df$mask, 0, 0.95)) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod)) +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Stacking of means") +
+  guides(fill = "none")#,
+aod_LSE
+
+LP_data <- data.frame(logAOD = rowMeans(pos_sam_LP$pred_y_U_stack_sam),
+                       x = combined_data_test$x,
+                       y = combined_data_test$y)
+aod_LP <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+    xlim = x_range, ylim = y_range) +
+  geom_tile(data = LP_data[pick_show, ],         # Add the image layer
+            aes(x = x, y = y, fill = logAOD)) +
+  geom_tile(data = mask_df,        # Overlay the mask layer
+            aes(x = x, y = y), fill = "white", 
+            alpha = ifelse(mask_df$mask, 0, 0.95)) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod)) +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Stacking of pds") +
+  guides(fill = "none")#,
+aod_LP
+
+BLM_data <- data.frame(logAOD = colMeans(predicted_samples_lm),
+                      x = combined_data_test$x,
+                      y = combined_data_test$y)
+aod_BLM <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+    xlim = x_range, ylim = y_range) +
+  geom_tile(data = BLM_data[pick_show, ],         # Add the image layer
+            aes(x = x, y = y, fill = logAOD)) +
+  geom_tile(data = mask_df,        # Overlay the mask layer
+            aes(x = x, y = y), fill = "white", 
+            alpha = ifelse(mask_df$mask, 0, 0.95)) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod)) +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Bayesian linear model") +
+  guides(fill = "none")#,
+aod_BLM
+
+
+combined_plot_pre <- grid.arrange(aod_test, aod_BLM,  aod_p_legend, 
+                                  aod_LSE, aod_LP, aod_p_legend, 
+                              ncol = 3, nrow = 2, widths = c(1, 1, 0.3))
+
+ggsave("./RDA/pics/AOD_pred.png", combined_plot_pre, width = 8, height = 5.5)
+
+## 95% CI coverage ##
+library(ggplot2)
+library(dplyr)
+calculate_means_and_cis <- function(pos_sam) {
+  row_means <- rowMeans(pos_sam)
+  CI <- apply(pos_sam, 1, 
+              function(x){quantile(x, probs = c(0.025, 0.975))})
+  data.frame(
+    mean = row_means,
+    lower = CI[1, ],
+    upper = CI[2, ]
+  )
+}
+
+# check y prediction # 
+lp_data <- calculate_means_and_cis(exp(pos_sam_LP$pred_y_U_stack_sam))
+lp_data$x <- combined_data_test$AOD
+cover_lp <- round(sum(lp_data$lower<lp_data$x & lp_data$upper>lp_data$x) / 
+                    length(lp_data$x) *100, 1) 
+label_lp <- paste0('stacking of pds')#, cover_lp,"% coverage")
+lp_data$source <- label_lp
+lse_data <- calculate_means_and_cis(exp(pos_sam_LSE$pred_y_U_stack_sam))
+lse_data$x <-  combined_data_test$AOD
+cover_lse <- round(sum(lse_data$lower<lse_data$x & lse_data$upper>lse_data$x) / 
+                     length(lse_data$x) *100, 1) 
+label_lse <- paste0('stacking of means')#, cover_lse, "% coverage")
+lse_data$source <- label_lse
+Blm_data <- calculate_means_and_cis(t(exp(predicted_samples_lm)))
+Blm_data$x <- combined_data_test$AOD
+cover_Blm <- round(sum(Blm_data$lower<Blm_data$x & 
+                          Blm_data$upper>Blm_data$x) / 
+                      length(Blm_data$x) *100, 1) 
+label_Blm <- paste0('Bayesian linear model')#, cover_Blm, "% coverage")
+Blm_data$source <- label_Blm
+
+
+# Combine data
+combined_data <- rbind(lse_data, lp_data, Blm_data)
+combined_data$source <- factor(combined_data$source, 
+                               levels = c(label_lse, label_lp, label_Blm))
+
+# Determine the common range for x and y if not already known
+x_range <- range(combined_data$x, na.rm = TRUE)
+y_range <- range(combined_data$mean, combined_data$lower, 
+                 combined_data$upper, na.rm = TRUE)
+# Plot
+pts_y <- ggplot(combined_data, aes(x = x, y = mean)) +
+  geom_point(size = 0.2, color = "blue") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.005, alpha = 0.1) +
+  geom_abline(intercept = 0, slope = 1, color = "green") +
+  facet_wrap(~ source) +  # Use 'free_x' to unify y range
+  scale_x_continuous(limits = x_range) +
+  scale_y_continuous(limits = y_range) +
+  theme_bw() +
+  labs(x = "y", y = "mean and 95%CI")
+pts_y
+ggsave(paste0("./RDA/pics/y_U_95CI.png"),
+       plot = pts_y,
+       width = 8, height = 3, units = "in", dpi = 600)
+
+
+
