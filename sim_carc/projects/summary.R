@@ -51,23 +51,23 @@ ESS_MCMC_M <- array(NA, dim = c(N_sim, N_list, 3))
 dimnames(ESS_MCMC_M)[[3]] <- c("phi", "nu", "deltasq")
 
 
-for(i in (1:N_sim)[c(-15, -22, -30)]){ #[c(-49, -50, -53, -54)] for sim1
+for(i in (1:N_sim)){ #[c(-15, -22, -30)] for sim2
   filename <- paste0("./sim_carc/results/sim", sim_ind, "_", i, ".Rdata")
   load(filename)
   #print(DIV_matrix)
   
-  SPE_stack_LP[i, ] = DIV_matrix[, "SPE_stack_LP"]
-  SPE_stack_LSE[i, ] = DIV_matrix[, "SPE_stack_LSE"]
-  SPE_M0[i, ] = DIV_matrix[, "SPE_M0"]
-  SPE_MCMC[i, ] = DIV_matrix[, "SPE_MCMC"]
+  SPE_stack_LP[i, ] = sqrt(DIV_matrix[, "SPE_stack_LP"])
+  SPE_stack_LSE[i, ] = sqrt(DIV_matrix[, "SPE_stack_LSE"])
+  SPE_M0[i, ] = sqrt(DIV_matrix[, "SPE_M0"])
+  SPE_MCMC[i, ] = sqrt(DIV_matrix[, "SPE_MCMC"])
   ELPD_stack_LSE[i, ] = DIV_matrix[, "ELPD_stack_LSE"]
   ELPD_stack_LP[i, ] = DIV_matrix[, "ELPD_stack_LP"]
   ELPD_M0[i, ] = DIV_matrix[, "ELPD_M0"]
   ELPD_MCMC[i, ] = DIV_matrix[, "ELPD_MCMC"]
-  SPE_w_stack_LP[i, ] = DIV_matrix[, "SPE_w_stack_LP"]
-  SPE_w_stack_LSE[i, ] = DIV_matrix[, "SPE_w_stack_LSE"]
-  SPE_w_M0[i, ] = DIV_matrix[, "SPE_w_M0"]
-  SPE_w_MCMC[i, ] = DIV_matrix[, "SPE_w_MCMC"]
+  SPE_w_stack_LP[i, ] = sqrt(DIV_matrix[, "SPE_w_stack_LP"])
+  SPE_w_stack_LSE[i, ] = sqrt(DIV_matrix[, "SPE_w_stack_LSE"])
+  SPE_w_M0[i, ] = sqrt(DIV_matrix[, "SPE_w_M0"])
+  SPE_w_MCMC[i, ] = sqrt(DIV_matrix[, "SPE_w_MCMC"])
   
   
   weights_M_LSE_all[, , i] <- weights_M_LSE
@@ -98,7 +98,7 @@ for(i in (1:N_sim)[c(-15, -22, -30)]){ #[c(-49, -50, -53, -54)] for sim1
 type = c("M0", "stacking of means", "stacking of predictive densities", 
          "MCMC")
 
-test = c("MSPE", "MSEZ", "MLPD")
+test = c("RMSPE", "RMSEZ", "MLPD")
 
 
 dat_check <- data.frame(N_sample = rep(rep(rep(paste(samplesize_ls), 
@@ -136,9 +136,9 @@ ggsave(paste0("./sim_carc/pics/CVexperiment_sim", sim_ind, ".png"),
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
 
-sum(weights_nonzero_LSE) / (64 * 8) # 3.32 in sim1; 3.67 in sim2
+sum(weights_nonzero_LSE) / (64 * 8) # 3.55 in sim1; 3.67 in sim2
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 3.86 in sim1; 4.52 in sim2
+sum(weights_nonzero_LP) / (64 * 8) # 4.13 in sim1; 4.52 in sim2
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -326,7 +326,7 @@ library(classInt)
 library(RColorBrewer)
 library(sp)
 
-r = 4
+r = 8 #r = 8 for sim 1 r =4 for sim2
 h <- 12
 surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$w), no.X = 300, 
                      no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est

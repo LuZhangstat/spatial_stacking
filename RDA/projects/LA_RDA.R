@@ -430,10 +430,10 @@ cbind(CV_fit_LP$grid_all[CV_fit_LP$wts>0.00001, ],
 cat("LSE R2:")
 1 - sum((rowMeans(pos_sam_LSE$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
   sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
-#0.820506
+#0.8455106
 
-cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam)))
-# 0.914
+cor(combined_data_test$AOD, rowMeans(exp(pos_sam_LSE$pred_y_U_stack_sam)))
+# 0.9269146
 
 # 95% CI. coverage
 y_U_CI_stack_LSE <- 
@@ -442,7 +442,7 @@ y_U_CI_stack_LSE <-
 cat("LSE 95% CI coverage: ")
 sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
-# 0.8236855
+# 0.7590449
 
 # 99% CI. coverage
 y_U_CI_stack_LSE <- 
@@ -451,28 +451,27 @@ y_U_CI_stack_LSE <-
 cat("LSE 99% CI coverage: ")
 sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
-# 0.9088278
+# 0.8699952
 
 # root-mean-squared error (RMSE)
 sqrt(mean((combined_data_test$AOD - 
-             exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam)))^2))
-# 0.01087614
+             rowMeans(exp(pos_sam_LSE$pred_y_U_stack_sam)))^2))
+#0.0100499
 
 # mean absolute error (MAE)
 mean(abs(combined_data_test$AOD - 
-           exp(rowMeans(pos_sam_LSE$pred_y_U_stack_sam))))
-# 0.007558968
-
+           rowMeans(exp(pos_sam_LSE$pred_y_U_stack_sam))))
+# 0.007049124
 
 ## For LP ##
 cat("LP R2:")
 1 - sum((rowMeans(pos_sam_LP$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
   sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
-#0.8079694
+#0.8419137
 
 # correlaton
-cor(combined_data_test$AOD, exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam)))
-#0.9065457
+cor(combined_data_test$AOD, rowMeans(exp(pos_sam_LP$pred_y_U_stack_sam)))
+#0.9261988
 
 # 95% CI. coverage
 y_U_CI_stack_LP <- 
@@ -481,7 +480,7 @@ y_U_CI_stack_LP <-
 cat("LP 95% CI coverage: ")
 sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
-# 0.7971539
+# 0.8212735
 
 # 95% CI. coverage
 y_U_CI_stack_LP <- 
@@ -490,17 +489,18 @@ y_U_CI_stack_LP <-
 cat("LP 99% CI coverage: ")
 sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
       (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
-# 0.9380125
+# 0.9394597
 
 # root-mean-squared error (RMSE)
 sqrt(mean((combined_data_test$AOD - 
-             exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam)))^2))
-#0.011
+             rowMeans(exp(pos_sam_LP$pred_y_U_stack_sam)))^2))
+#0.0101573
+
 
 # mean absolute error (MAE)
 mean(abs(combined_data_test$AOD - 
-           exp(rowMeans(pos_sam_LP$pred_y_U_stack_sam))))
-# 0.007808159
+           rowMeans(exp(pos_sam_LP$pred_y_U_stack_sam))))
+# 0.007143969
 
 
 # fit Bayesian linear regression model #
@@ -511,14 +511,14 @@ prior1 <- prior(normal(0,2), class = b) +
   prior(cauchy(0, 0.5), class = sigma)
 fit_lm <- brm(logAOD ~ x + y + EVI + IS + RND,
               data = combined_data_train, family = gaussian(), 
-              prior = prior1)
+              prior = prior1, seed = 123)
 summary(fit_lm)
 predicted_samples_lm <- 
   posterior_predict(fit_lm, newdata = combined_data_test)
 
 # correlaton
-cor(combined_data_test$AOD, exp(colMeans(predicted_samples_lm)))
-#0.6929903
+cor(combined_data_test$AOD, colMeans(exp(predicted_samples_lm)))
+#0.6932424
 
 # 95% CI. coverage
 y_U_CI_lm <- 
@@ -527,7 +527,7 @@ y_U_CI_lm <-
 cat("BLM 95% CI coverage: ")
 sum((y_U_CI_lm[1, ] < combined_data_test$AOD) & 
       (y_U_CI_lm[2, ] > combined_data_test$AOD))/4146
-# 0.9512783
+# 0.9493488
 
 # 95% CI. coverage
 y_U_CI_lm <- 
@@ -540,13 +540,13 @@ sum((y_U_CI_lm[1, ] < combined_data_test$AOD) &
 
 # root-mean-squared error (RMSE)
 sqrt(mean((combined_data_test$AOD - 
-             exp(colMeans(predicted_samples_lm)))^2))
-#0.01970975
+             colMeans(exp(predicted_samples_lm)))^2))
+#0.01941467
 
 # mean absolute error (MAE)
 mean(abs(combined_data_test$AOD - 
            exp(colMeans(predicted_samples_lm))))
-# 0.01467967
+# 0.01467183
 
 #################################
 ## compare the predicted plots ##
@@ -679,24 +679,24 @@ calculate_means_and_cis <- function(pos_sam) {
 }
 
 # check y prediction # 
-lp_data <- calculate_means_and_cis(exp(pos_sam_LP$pred_y_U_stack_sam))
-lp_data$x <- combined_data_test$AOD
+lp_data <- calculate_means_and_cis(pos_sam_LP$pred_y_U_stack_sam)
+lp_data$x <- log(combined_data_test$AOD)
 cover_lp <- round(sum(lp_data$lower<lp_data$x & lp_data$upper>lp_data$x) / 
                     length(lp_data$x) *100, 1) 
-label_lp <- paste0('stacking of pds')#, cover_lp,"% coverage")
+label_lp <- paste0('stacking of pds: ', cover_lp,"% coverage")
 lp_data$source <- label_lp
-lse_data <- calculate_means_and_cis(exp(pos_sam_LSE$pred_y_U_stack_sam))
-lse_data$x <-  combined_data_test$AOD
+lse_data <- calculate_means_and_cis(pos_sam_LSE$pred_y_U_stack_sam)
+lse_data$x <- log(combined_data_test$AOD)
 cover_lse <- round(sum(lse_data$lower<lse_data$x & lse_data$upper>lse_data$x) / 
                      length(lse_data$x) *100, 1) 
-label_lse <- paste0('stacking of means')#, cover_lse, "% coverage")
+label_lse <- paste0('stacking of means: ', cover_lse, "% coverage")
 lse_data$source <- label_lse
-Blm_data <- calculate_means_and_cis(t(exp(predicted_samples_lm)))
-Blm_data$x <- combined_data_test$AOD
+Blm_data <- calculate_means_and_cis(t(predicted_samples_lm))
+Blm_data$x <- log(combined_data_test$AOD)
 cover_Blm <- round(sum(Blm_data$lower<Blm_data$x & 
                           Blm_data$upper>Blm_data$x) / 
                       length(Blm_data$x) *100, 1) 
-label_Blm <- paste0('Bayesian linear model')#, cover_Blm, "% coverage")
+label_Blm <- paste0('Bayesian linear: ', cover_Blm, "% coverage")
 Blm_data$source <- label_Blm
 
 
@@ -718,11 +718,52 @@ pts_y <- ggplot(combined_data, aes(x = x, y = mean)) +
   scale_x_continuous(limits = x_range) +
   scale_y_continuous(limits = y_range) +
   theme_bw() +
-  labs(x = "y", y = "mean and 95%CI")
+  labs(x = "log AOD", y = "mean and 95%CI")
 pts_y
 ggsave(paste0("./RDA/pics/y_U_95CI.png"),
        plot = pts_y,
        width = 8, height = 3, units = "in", dpi = 600)
 
 
+# # if fit INLA #
+inla_data = data.frame(
+  mean = res$summary.fitted.values[check_ind, "mean"],
+  upper = (res$summary.fitted.values[check_ind, "0.975quant"]),
+  lower = (res$summary.fitted.values[check_ind, "0.025quant"]),
+  x = log(combined_data_test$AOD))
+cover_inla <- round(sum(inla_data$lower<inla_data$x &
+                          inla_data$upper>inla_data$x) /
+                      length(inla_data$x) *100, 1)
+label_inla <- paste0('INLA: ', cover_inla, "% coverage")
+inla_data$source <- label_inla
 
+# Combine data
+combined_data <- rbind(lse_data, lp_data, inla_data, Blm_data)
+combined_data$source <- factor(combined_data$source,
+                               levels = c(label_lse, label_lp, label_inla,
+                                          label_Blm))
+
+# Determine the common range for x and y if not already known
+x_range <- range(combined_data$x, na.rm = TRUE)
+y_range <- range(combined_data$mean, combined_data$lower,
+                 combined_data$upper, na.rm = TRUE)
+# Plot
+pts_y <- ggplot(combined_data, aes(x = x, y = mean)) +
+  geom_point(size = 0.2, color = "blue") +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.005, alpha = 0.1) +
+  geom_abline(intercept = 0, slope = 1, color = "green") +
+  facet_wrap(~ source) +  # Use 'free_x' to unify y range
+  scale_x_continuous(limits = x_range) +
+  scale_y_continuous(limits = y_range) +
+  theme_bw() +
+  labs(x = "y", y = "mean and 95%CI")
+pts_y
+ggsave(paste0("./RDA/pics/y_U_95CI_n10161_95CIC.png"),
+       plot = pts_y,
+       width = 8, height = 5, units = "in", dpi = 600)
+
+
+# summary(inla_data$upper - inla_data$lower)
+# summary(lp_data$upper - lp_data$lower)
+# plot(inla_data$upper - inla_data$lower, lp_data$upper - lp_data$lower)
+# abline(0, 1)

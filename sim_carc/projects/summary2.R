@@ -35,14 +35,14 @@ SPE_w_stack_LSE = matrix(NA, nrow = N_sim, ncol = N_list)
 SPE_w_stack_LP_P = matrix(NA, nrow = N_sim, ncol = N_list)
 SPE_w_stack_LSE_P = matrix(NA, nrow = N_sim, ncol = N_list)
 
-for(i in (1:N_sim)[c(-15, -22, -30)]){ #(1:N_sim)[c(-5, -6, -59)]for sim2 (1:N_sim)[c(-49,-50,-53,-54)] 
+for(i in (1:N_sim)[c(-15, -22, -30)]){ #(1:N_sim)[c(-15, -22, -30)]for sim2  
   filename <- paste0("./sim_carc/results/sim", sim_ind, "_", i, ".Rdata")
   load(filename)
-  SPE_MCMC[i, ] = DIV_matrix[, "SPE_MCMC"]
-  SPE_stack_LP[i, ] = DIV_matrix[, "SPE_stack_LP"]
-  SPE_stack_LSE[i, ] = DIV_matrix[, "SPE_stack_LSE"]
-  SPE_stack_LP_P[i, ] = DIV_matrix[, "SPE_stack_LP_P"]
-  SPE_stack_LSE_P[i, ] = DIV_matrix[, "SPE_stack_LSE_P"]
+  SPE_MCMC[i, ] = sqrt(DIV_matrix[, "SPE_MCMC"])
+  SPE_stack_LP[i, ] = sqrt(DIV_matrix[, "SPE_stack_LP"])
+  SPE_stack_LSE[i, ] = sqrt(DIV_matrix[, "SPE_stack_LSE"])
+  SPE_stack_LP_P[i, ] = sqrt(DIV_matrix[, "SPE_stack_LP_P"])
+  SPE_stack_LSE_P[i, ] = sqrt(DIV_matrix[, "SPE_stack_LSE_P"])
   
   ELPD_MCMC[i, ] = DIV_matrix[, "ELPD_MCMC"]
   ELPD_stack_LSE[i, ] = DIV_matrix[, "ELPD_stack_LSE"]
@@ -50,18 +50,18 @@ for(i in (1:N_sim)[c(-15, -22, -30)]){ #(1:N_sim)[c(-5, -6, -59)]for sim2 (1:N_s
   ELPD_stack_LSE_P[i, ] = DIV_matrix[, "ELPD_stack_LSE_P"]
   ELPD_stack_LP_P[i, ] = DIV_matrix[, "ELPD_stack_LP_P"]
   
-  SPE_w_MCMC[i, ] = DIV_matrix[, "SPE_w_MCMC"]
-  SPE_w_stack_LP[i, ] = DIV_matrix[, "SPE_w_stack_LP"]
-  SPE_w_stack_LSE[i, ] = DIV_matrix[, "SPE_w_stack_LSE"]
-  SPE_w_stack_LP_P[i, ] = DIV_matrix[, "SPE_w_stack_LP_P"]
-  SPE_w_stack_LSE_P[i, ] = DIV_matrix[, "SPE_w_stack_LSE_P"]
+  SPE_w_MCMC[i, ] = sqrt(DIV_matrix[, "SPE_w_MCMC"])
+  SPE_w_stack_LP[i, ] = sqrt(DIV_matrix[, "SPE_w_stack_LP"])
+  SPE_w_stack_LSE[i, ] = sqrt(DIV_matrix[, "SPE_w_stack_LSE"])
+  SPE_w_stack_LP_P[i, ] = sqrt(DIV_matrix[, "SPE_w_stack_LP_P"])
+  SPE_w_stack_LSE_P[i, ] = sqrt(DIV_matrix[, "SPE_w_stack_LSE_P"])
 }
 
 
 type = c("MCMC LSE", "stacking of means", "MCMC LP", 
          "stacking of predictive densities", "MCMC")
 
-test = c("MSPE", "MSEZ", "MLPD")
+test = c("RMSPE", "RMSEZ", "MLPD")
 
 
 dat_check <- data.frame(N_sample = rep(rep(rep(paste(samplesize_ls), 
