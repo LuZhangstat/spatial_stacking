@@ -1,4 +1,18 @@
 using SpecialFunctions
+using Distributions
+
+function pick_deltasq(E_sigmasq, E_tausq; b = 2, p_ls = [0.1, 0.25, 0.5, 0.75, 0.9])
+    # Use expectation of sigmasq and tausq to select alpha and beta
+    alpha = b / E_sigmasq + 1
+    beta = b / E_tausq + 1
+    
+    # Calculate the quantiles of the beta distribution
+    quantile_ls = quantile(Beta(alpha, beta), p_ls)
+    deltasq_cand = quantile_ls ./ (1 .- quantile_ls)
+    
+    return deltasq_cand
+end
+
 
 function Maternlu(x; ν=1.0, ϕ = 6.0, σ2 = 1.0)
     

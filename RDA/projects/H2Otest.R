@@ -64,39 +64,80 @@ test <- as.h2o(combined_data_test)
 
 
 ## 1. Deep Learning ##
-m1 <- h2o.deeplearning(x, y, train)  
+m1 <- h2o.deeplearning(x, y, train, nfolds=10, seed = 1,
+                       fold_assignment = "Modulo", 
+                       keep_cross_validation_predictions = T,
+                       reproducible = TRUE)  
 p1 <- h2o.predict(m1, test)  
 #as.data.frame(p)
 pred_perf1 <- h2o.performance(m1, test)
-pred_perf1@metrics$mae
-pred_perf1@metrics$RMSE
-# H2ORegressionMetrics: deeplearning
-# 
-# MSE:  0.0002866251
-# RMSE:  0.01693001
-# MAE:  0.0129035
-# RMSLE:  0.01574191
-# Mean Residual Deviance :  0.0002866251
+pred_perf1@metrics$mae # 0.01266137
+pred_perf1@metrics$RMSE # 0.01658932
 h2o.cor(p1$predict, test$AOD)
-# 0.7800214
+# 0.792391
 
 ## 2. Distributed Random Forest ##
-m2 <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults")
+
+g <- h2o.grid("randomForest",
+              hyper_params = list(
+                ntrees = c(50, 100, 120),
+                max_depth = c(40, 60),
+                min_rows = c(1, 2)
+              ), seed = 1,
+              x = x, y = y, training_frame = train, nfolds = 10)
+g
+
+m2 <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults",
+                       fold_assignment = "Modulo", seed = 1,
+                       keep_cross_validation_predictions = T,
+                       ntrees = 120, max_depth = 60, min_rows = 1)
 p2 <- h2o.predict(m2, test) 
 pred_perf2 <- h2o.performance(m2, test)
-pred_perf2@metrics$mae #0.0117614
-pred_perf2@metrics$RMSE # 0.01549652
+pred_perf2@metrics$mae # 0.01153211
+pred_perf2@metrics$RMSE # 0.01526932
 h2o.cor(p2$predict, test$AOD)
-# 0.8148709
+# 0.8208408
 
 ## 3. Gradient Boosting ##
-m3 <- h2o.gbm(x, y, train, nfolds = 10, model_id = "GBM_defaults")
+m3 <- h2o.gbm(x, y, train, nfolds = 10, model_id = "GBM_defaults",
+              fold_assignment = "Modulo", seed = 1,
+              keep_cross_validation_predictions = T)
 p3 <- h2o.predict(m3, test) 
 pred_perf3 <- h2o.performance(m3, test)
 pred_perf3@metrics$mae #0.01221575
 pred_perf3@metrics$RMSE #0.01609126
 h2o.cor(p3$predict, test$AOD)
 # 0.7969876
+
+## 4. Ensemble model ##
+library(h2oEnsemble)
+RFd <- h2o.randomForest(x, y, train, model_id="RF_defaults", nfolds=10, 
+                        seed = 1, fold_assignment = "Modulo", 
+                        keep_cross_validation_predictions = T,
+                        ntrees = 120, max_depth = 60, min_rows = 1)
+GBMd <- h2o.gbm(x, y, train, model_id="GBM_defaults", nfolds=10, seed = 1,
+                fold_assignment = "Modulo", 
+                keep_cross_validation_predictions = T)
+#GLMd <- h2o.glm(x, y, train, model_id="GLM_defaults", nfolds=10, seed = 1,
+#                fold_assignment = "Modulo", 
+#                keep_cross_validation_predictions = T)
+DLd <- h2o.deeplearning(x, y, train, model_id="DL_defaults", nfolds=10, 
+                        seed = 1, fold_assignment = "Modulo", 
+                        keep_cross_validation_predictions = T, 
+                        reproducible = TRUE)
+
+models <- c(RFd, GBMd, DLd)
+
+# Combine base models into a stacked ensemble
+ensemble <- h2o.stackedEnsemble(x, y, training_frame = train, seed = 1,
+                                base_models = c(RFd, GBMd, GLMd, DLd),
+                                metalearner_algorithm = "glm") # Using GLM as metalearner for regression
+pred_ensem <- h2o.predict(ensemble, newdata = test)
+pred_perf_ensem <- h2o.performance(ensemble, test)
+pred_perf_ensem@metrics$mae # 0.01151554
+pred_perf_ensem@metrics$RMSE # 0.01532827
+h2o.cor(pred_ensem$predict, test$AOD)
+# 0.8176291
 
 #h2o.shutdown()
 
