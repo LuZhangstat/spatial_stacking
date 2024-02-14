@@ -130,15 +130,18 @@ models <- c(RFd, GBMd, DLd)
 
 # Combine base models into a stacked ensemble
 ensemble <- h2o.stackedEnsemble(x, y, training_frame = train, seed = 1,
-                                base_models = c(RFd, GBMd, GLMd, DLd),
+                                base_models = c(RFd, GBMd, DLd),
                                 metalearner_algorithm = "glm") # Using GLM as metalearner for regression
 pred_ensem <- h2o.predict(ensemble, newdata = test)
 pred_perf_ensem <- h2o.performance(ensemble, test)
-pred_perf_ensem@metrics$mae # 0.01151554
-pred_perf_ensem@metrics$RMSE # 0.01532827
+pred_perf_ensem@metrics$mae #  0.01155025
+pred_perf_ensem@metrics$RMSE # 0.01539727
 h2o.cor(pred_ensem$predict, test$AOD)
-# 0.8176291
+# 0.8160181
 
 #h2o.shutdown()
 
-
+p1pred = h2o.assign(p1, "predict")
+H2Opred <- h2o.cbind(p1$predict, p2$predict, p3$predict, pred_ensem$predict)
+h2o.exportFile(H2Opred, "./RDA/result/H2Opred.csv")
+h2o.shutdown()

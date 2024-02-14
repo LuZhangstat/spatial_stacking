@@ -552,6 +552,10 @@ mean(abs(combined_data_test$AOD -
 ## compare the predicted plots ##
 #################################
 
+# load results from H2O models #
+H2Opred <- read.csv("./RDA/result/H2Opred.csv")
+names(H2Opred) <- c("DL", "RF", "GB", "Ensemble")
+
 pick_show <- which(combined_data_test$x>55 & combined_data_test$x<140 & 
         combined_data_test$y>20 & combined_data_test$y<80)
 combined_data_test$logAOD = log(combined_data_test$AOD)
@@ -657,8 +661,34 @@ aod_BLM <- ggplot() +
   guides(fill = "none")#,
 aod_BLM
 
+RF_data <- data.frame(logAOD = log(H2Opred$RF),
+                       x = combined_data_test$x,
+                       y = combined_data_test$y)
+aod_RF <- ggplot() + 
+  coord_fixed(#ratio = aspect_ratio, 
+    xlim = x_range, ylim = y_range) +
+  geom_tile(data = RF_data[pick_show, ],         # Add the image layer
+            aes(x = x, y = y, fill = logAOD)) +
+  geom_tile(data = mask_df,        # Overlay the mask layer
+            aes(x = x, y = y), fill = "white", 
+            alpha = ifelse(mask_df$mask, 0, 0.95)) +
+  scale_fill_gradientn(colors = viridis::viridis(6),
+                       limits = c(min_log_aod, max_log_aod)) +  
+  theme_minimal() +                # Adjust this for your image color scale
+  theme(axis.text = element_blank(), 
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        plot.margin = margin(0, 0, 0, 0, "pt"),
+        #panel.border = element_rect(color = "black", fill = NA),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  labs(title = "Random Forest") +
+  guides(fill = "none")#,
+aod_RF
 
-combined_plot_pre <- grid.arrange(aod_test, aod_BLM,  aod_p_legend, 
+
+combined_plot_pre <- grid.arrange(aod_test, aod_RF,  aod_p_legend, 
                                   aod_LSE, aod_LP, aod_p_legend, 
                               ncol = 3, nrow = 2, widths = c(1, 1, 0.3))
 
