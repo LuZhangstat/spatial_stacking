@@ -1,5 +1,6 @@
 using SpecialFunctions
 using Distributions
+using JuMP, Ipopt
 
 function pick_deltasq(E_sigmasq, E_tausq; b = 2, p_ls = [0.1, 0.25, 0.5, 0.75, 0.9])
     # Use expectation of sigmasq and tausq to select alpha and beta
@@ -445,11 +446,40 @@ function QP_stacking_weight(Y_hat::Matrix, y::Vector)
     return w.value[:]
 end
 
+
+#=
+function stacking_weight(lpd_point::AbstractMatrix)
+    lp_m = mean(lpd_point);
+    lpd_point .-= lp_m;  # Rescale the log-density for numerical stability
+    exp_lpd_point = exp.(lpd_point);
+
+    model = Model(Ipopt.Optimizer);
+    JuMP.set_optimizer_attribute(model, "print_level", 0);  # Equivalent to Mosek's LOG=0 for Ipopt
+    
+    JuMP.register(model, :sum, 1, sum, autodiff = true);
+
+    @variable(model, w[1:size(lpd_point, 2)] >= 0);  # Define variables with non-negativity constraint
+    @NLobjective(model, Max, sum(log.(exp_lpd_point * w)));  # Define the nonlinear objective
+    @constraint(model, sum(w) == 1);  # Add the constraints
+
+    optimize!(model);  # Solve the optimization problem
+
+    if termination_status(model) == MOI.LOCALLY_SOLVED || termination_status(model) == MOI.OPTIMAL
+        return value.(w);  # Return the solution
+    else
+        error("Optimization problem did not solve successfully: $(termination_status(model))");
+    end
+end
+=#
+
+
+
 function stacking_weight(lpd_point::AbstractMatrix)
     
     lp_m = mean(lpd_point);
     lpd_point .-=lp_m; # rescale the log-density for numerical stability
     exp_lpd_point = exp.(lpd_point);
+  
     w = Variable(size(lpd_point, 2));
     problem = maximize(sum(log(exp_lpd_point * w))); # objective
     problem.constraints += sum(w) == 1; # constraint
@@ -457,7 +487,10 @@ function stacking_weight(lpd_point::AbstractMatrix)
     solver = () -> Mosek.Optimizer(LOG=0);
     solve!(problem, solver);
     return w.value[:]
+    
 end
+
+
 
 
 function sp_stacking_K_fold(X, y, coords, deltasq_grid, phi_grid,
