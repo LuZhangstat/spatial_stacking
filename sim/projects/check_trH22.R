@@ -9,7 +9,7 @@ library(fields)
 1 / Matern.cor.to.range(0.5, 1.0, cor.target=.05) # 8.0
 1 / Matern.cor.to.range(0.5, 1.5, cor.target=.05) # 9.5
 
-samplesize_ls  = c(100, 200, 400, 800)#, 1600, 3200)
+samplesize_ls  = c(100, 200, 400, 800, 1600, 3200)
 N_ls <- length(samplesize_ls)
 phi_ls = c(6.0, 8.0, 9.5)
 nu_ls = c(0.5, 1.0, 1.5)
@@ -58,13 +58,6 @@ for(i in 1:N_ls){
       cbind(inv_L_V_beta , matrix(0, nrow = p, ncol = N)),
       cbind(matrix(0, nrow = N, ncol = p), Lphi))
     U = chol2inv(chol(crossprod(xtilde)))
-    # modified part #
-    # Mvec = rep(1/N, N)
-    # Q = rbind(cbind(diag(p), 
-    #                 rbind(Mvec, matrix(0, nrow = p-1, ncol = N))),
-    #           cbind(matrix(0, nrow = N, ncol = p), diag(N)));
-    #                # diag(N) - N*(Mvec%*%t(Mvec))));
-    # U = Q %*% U %*% t(Q)
     B = crossprod(cbind(X1[1:N, ], diag(N)) %*% U)
     C = U[1:p, 1:p] %*% inv_V_beta %*% U[1:p, 1:p]
     DD = crossprod(Lphi %*% U[(p+1):(N+p), 1:p])
@@ -215,7 +208,7 @@ ggsave(paste0("./sim/pics/check_trH22_d1.png"),
 
 
 # d = 2 #
-samplesize_ls  = c(100, 250, 625)#, 1563, 3906, 9765) #c(100, 400, 800, 1600, 3200, 6400) #
+samplesize_ls  = c(100, 250, 625, 1563, 3906, 9765) #c(100, 400, 800, 1600, 3200, 6400) #
 N_ls <- length(samplesize_ls)
 phi_ls = c(6.0, 8.0, 9.5)
 nu_ls = c(0.5, 1.0, 1.5)
@@ -264,13 +257,6 @@ for(i in 1:N_ls){
       cbind(inv_L_V_beta , matrix(0, nrow = p, ncol = N)),
       cbind(matrix(0, nrow = N, ncol = p), Lphi))
     U = chol2inv(chol(crossprod(xtilde)))
-    # modified part:
-    # Mvec = rep(1/N, N)
-    # Q = rbind(cbind(diag(p), 
-    #                 rbind(Mvec, matrix(0, nrow = p-1, ncol = N))),
-    #           cbind(matrix(0, nrow = N, ncol = p), diag(N)));
-    #                # diag(N) - N*(Mvec%*%t(Mvec))));
-    # U = Q %*% U %*% t(Q)
     
     B = crossprod(cbind(X1[1:N, ], diag(N)) %*% U)
     C = U[1:p, 1:p] %*% inv_V_beta %*% U[1:p, 1:p]
