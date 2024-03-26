@@ -7,7 +7,7 @@ library(geoR)
 library(rbenchmark)
 library("gridExtra")
 library(fields)
-source("utils2.R") # utils2.R is the testing code #
+source("utils.R") 
 
 args <- commandArgs(trailingOnly = TRUE)
 input_id <- as.numeric(args[1])  # Assuming input_id is the first argument

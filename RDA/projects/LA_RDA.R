@@ -336,7 +336,7 @@ range(c(1 / Matern.cor.to.range(5, 0.5, cor.target=.05),
         1 / Matern.cor.to.range(5, 1.75, cor.target=.05)))
 
 #~0.2 to ~0.8, 0.12 to 1.01
-source("utils2.R")
+source("utils.R")
 phi_grid = c(0.1, 0.4, 0.7, 1.0)
 nu_grid = c(0.5, 1.0, 1.5, 1.75)
 deltasq_grid <- pick_deltasq(E_sigmasq = 0.088, E_tausq = 0.01, b = 0.088,
