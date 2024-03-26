@@ -17,9 +17,9 @@ source("utils.R") # utils2.R is the testing code #
 ############################################################
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-load("./sim_carc/results/sim2_1.RData")
+load("./sim_carc/results/sim1_1.RData")
 # default method #
-sim_ind = 2
+sim_ind = 1
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq, 
@@ -29,7 +29,7 @@ deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq,
 deltasq_grid
 seed = 123
 
-r = 4 # r = 2,8 for sim1 r = 4 for sim2
+r = 8 # r = 2,8 for sim1 r = 4 for sim2
 ind_mod = raw_data[[r]]$ind_mod
 X <- raw_data[[r]]$X
 y <- raw_data[[r]]$y
@@ -423,7 +423,7 @@ ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "ICI_r", r, ".png"),
        plot = individual_y_compar2,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
-# check w #
+# check latent process z #
 pick_indi <- c(50, 90)
 draws_ls1 <- c()
 draws_ls1[[1]] <- pos_wy$w.recover.sample[r*100+pick_indi[1], 101:1000]+
@@ -445,7 +445,7 @@ individual_w_compar1 <-
               type_names = c("MCMC", "default", "MCMC+Stacking"), 
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[-ind_mod][pick_indi[1]]+raw_data[[r]]$beta[1],
-              yname = expression(w(s[50])+beta[1])
+              yname = expression(z(s[50])+beta[1])
   )
 
 draws_ls2 <- c()
@@ -468,7 +468,7 @@ individual_w_compar2 <-
               type_names = c("posterior", "default", "MCMC+stacking"), 
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[-ind_mod][pick_indi[2]]+raw_data[[r]]$beta[1],
-              yname = expression(w(s[90])+beta[1])
+              yname = expression(z(s[90])+beta[1])
   )
 
 print(individual_w_compar1)
@@ -503,7 +503,7 @@ individual_w_compar1 <-
               type_names = c("MCMC", "default", "MCMC+Stacking"), 
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[pick_indi[1]]+raw_data[[r]]$beta[1],
-              yname = expression(w(s[50])+beta[1])
+              yname = expression(z(s[50])+beta[1])
   )
 
 draws_ls2 <- c()
@@ -526,7 +526,7 @@ individual_w_compar2 <-
               type_names = c("posterior", "default", "MCMC+stacking"), 
               test_names = c("stacking of means", "stacking of pds"), 
               true_value = w[pick_indi[2]]+raw_data[[r]]$beta[1],
-              yname = expression(w(s[90])+beta[1])
+              yname = expression(z(s[90])+beta[1])
   )
 
 print(individual_w_compar1)
@@ -644,7 +644,7 @@ pts_w_obs <- ggplot(combined_data, aes(x = x, y = mean)) +
   scale_x_continuous(limits = x_range) +
   scale_y_continuous(limits = y_range) +
   theme_bw() +
-  labs(x = "w + intercept on observed locations", y = "mean and 95%CI")
+  labs(x = "z + intercept on observed locations", y = "mean and 95%CI")
 pts_w_obs
 ggsave(paste0("./sim/pics/w_obs_95CIsim", sim_ind, "_r", r, ".png"),
        plot = pts_w_obs,
@@ -696,7 +696,7 @@ pts_w_U <- ggplot(combined_data, aes(x = x, y = mean)) +
   scale_x_continuous(limits = x_range) +
   scale_y_continuous(limits = y_range) +
   theme_bw() +
-  labs(x = "w + intercept on unobserved locations", y = "mean and 95%CI")
+  labs(x = "z + intercept on unobserved locations", y = "mean and 95%CI")
 pts_w_U
 ggsave(paste0("./sim/pics/w_U_95CIsim", sim_ind, "_r", r, ".png"),
        plot = pts_w_U,
@@ -749,7 +749,7 @@ pts_w_U_mcmc_compar <- ggplot(combined_data, aes(x = x, y = mean)) +
   scale_x_continuous(limits = x_range) +
   scale_y_continuous(limits = y_range) +
   theme_bw() + 
-  labs(x = "MCMC mean and 95%CI for w + intercept on unobserved locations", 
+  labs(x = "MCMC mean and 95%CI for z + intercept on unobserved locations", 
        y = "mean and 95%CI")
 
 pts_w_U_mcmc_compar
