@@ -6,7 +6,7 @@ Roadmap
 ---------
 |Folder Name |     Intro            |
 |:------ |:----------- |
-|RDA| Data and codee for the AOD analysis|
+|RDA| Data and code for the AOD analysis|
 |sim| Code for assumption checking, and example R code for simulation studies|
 |sim_carc| Code submitted to cluster for simulation studies in Section 4|
 |sim_hoffman2| Old Code submitted to cluster for simulation studies in Section 4|
