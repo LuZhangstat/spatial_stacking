@@ -1,0 +1,220 @@
+---
+title: "Bayesian Geostatistics Using Predictive
+Stacking example code"
+author: "Lu Zhang"
+#date: "2024-04-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Example code for the proposed stacking algorithms
+In this Rmarkdown file, we illustrate one example in the first simulation study to show how to conduct the proposed stacking algorithms. In addition to the required R libraries, you will need to install [mosek](https://www.mosek.com) on your machine before running the code.
+
+```{r library, warning=FALSE, message=FALSE}
+# load libraries and utils.R
+rm(list = ls())
+library(ggplot2)
+library(MASS)
+library(spBayes)
+library(ggplot2)
+library(cmdstanr)
+library(geoR)
+library(rbenchmark)
+library("gridExtra")
+library(fields)
+source("utils.R")
+```
+
+### Generate simulation data
+The data for the experiment is generated using (2.1) on locations sampled uniformly over a unit square $[0, 1]^2$ with $R_{\Phi}$ being the Mat\'ern covariogram. The sample size $n$ of the simulated data set is $300$, and we randomly pick $n_h = 100$ observations for checking predictive performance. The vector $x(s)$ consists of an intercept and a predictor generated from a standard normal distribution. In this Rmarkdown, we illustrate example code for the first simulation with the parameter values $\beta = (1, 2)'$, $\phi = 7$, $\sigma^2 = 1$, $\tau^2 = 1$ and $\nu = 1$. 
+
+```{r cars}
+set.seed(12)
+N <- 300
+coords <- cbind(runif(N), runif(N))
+#X <- NULL
+#beta <- NULL
+X <- as.matrix(cbind(1, rnorm(N)))
+beta <- as.matrix(c(1, 2))
+sigma.sq <- 1
+tau.sq <- 1
+phi <- 6
+
+D <- as.matrix(dist(coords))
+R <- exp(- phi * D)
+w <- mvrnorm(n = 1, mu = rep(0, N), Sigma = sigma.sq * R)
+if(is.null(X)){
+  y <- rnorm(N, w, sqrt(tau.sq))
+}else{
+  y <- rnorm(N, X %*% beta + w, sqrt(tau.sq))
+}
+
+N_ho = 100
+ind_mod = 1:(N - N_ho)
+```
+
+### Set priors and the candidate values for hyper-pars in stacking
+We analyze our data using the $K=10$-fold stacking Algorithms 1 and 2 with candidate values $\nu \in G_{\nu} = \{0.5, 1, 1.5, 1.75\}$. The candidate values for $\phi$ are selected so that the ``effective spatial range'', which refers to the distance where spatial correlation drops below 0.05, covers $0.1$ and $0.6$ times $\sqrt{2}$ (the maximum inter-site distance within a unit square) for all candidate values of $\nu$. Here we set $G_{\phi} = \{3, 14, 25, 36\}$. Finally, we specify $G_{\delta^2}$ to comprise the $0.05$, $0.35$, $0.65$ and $0.95$th quantiles of a beta distribution with expectations of $\sigma^2$ and $\tau^2$ equal to their data generating values. We assign an $\mbox{IG}(a_\sigma, b_\sigma)$ prior with $a_\sigma = b_\sigma = 2$ for $\sigma^2$. The prior of $\beta$ is $\mbox{N}(\mu_\beta, V_\beta)$ where $\mu_\beta = 0$ and $V_\beta = 4\cdot {I}$.
+```{r}
+priors <- list(mu_beta = rep(0, 2),
+               inv_V_beta = 1/4 * diag(2),
+               a_sigma = 2,
+               b_sigma = 2)
+## set the candidate values for hyper-pars in stacking ##
+# decide the bound of the candidate values for phi
+range(c(1 / Matern.cor.to.range(0.6 * sqrt(2), 0.5, cor.target=.05),
+        1 / Matern.cor.to.range(0.1 * sqrt(2), 0.5, cor.target=.05),
+        1 / Matern.cor.to.range(0.6 * sqrt(2), 1.75, cor.target=.05),
+        1 / Matern.cor.to.range(0.1 * sqrt(2), 1.75, cor.target=.05)))
+
+nu_grid = c(0.5, 1, 1.5, 1.75)
+phi_grid = c(3, 14, 25, 36)   
+deltasq_grid <- pick_deltasq(E_sigmasq = sigma.sq, 
+                             E_tausq = tau.sq, b = max(sigma.sq, tau.sq),
+                             p_ls = c(0.05, 0.35, 0.65, 0.95))
+
+K_fold = 10 # K-fold cross-validation
+seed = 2
+```
+
+### Stacking with prediction (LSE) and log predictive density (LP)
+```{r}
+CV_fit_LSE <- sp_stacking_K_fold(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  deltasq_grid = deltasq_grid, phi_grid = phi_grid,
+  nu_grid = nu_grid, priors = priors, K_fold = K_fold,
+  seed = seed, label = "LSE")
+
+CV_fit_LP <- sp_stacking_K_fold(
+  X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
+  deltasq_grid = deltasq_grid, phi_grid = phi_grid,
+  nu_grid = nu_grid, priors = priors, K_fold = K_fold,
+  seed = seed, label = "LP", MC = FALSE)
+
+```
+
+### Predictive accuracy evaluation
+For each simulated data set, we implement stacking of means and of predictive densities to obtain the expected outcome $\hat{y}(s)$ based on the held out observed locations. The predictive accuracy is evaluated by the root mean squared prediction error over a set of $n_h$ hold-out locations in set ${\cal S}_h$  ($\text{RMSPE} = \sqrt{\sum_{s \in {\cal S}_h}((\hat{y}(s) - y(s))^2)/n_h}$). We also compute the posterior expected values of the latent process $\hat{z}(s)$ for $z(s)$ on all of the $n$ sampled locations in ${\cal S}$ and evaluate the root mean squared error for $z(s)$ ($\text{RMSEZ} = \sqrt{\sum_{s \in {\cal S}}(\hat{z}(s) - z(s))^2/n}$). To further evaluate the distribution of predicted values, we compute the mean log point-wise predictive density for the $n_h$ held out locations ($\text{MLPD} = \sum_{s \in {\cal S}_h}\{\log (\sum_{g = 1}^G w_g p(y(s) ; | ; y, \mathcal{M}_g))\}/n_h$). 
+```{r}
+## stacking mean squared prediction error ##
+y_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
+w_expect_grid <- matrix(0, nrow = N, ncol = nrow(CV_fit_LSE$grid_all))
+
+for (i in 1:nrow(CV_fit_LSE$grid_all)){
+  if( (CV_fit_LSE$wts[i]>0) | (CV_fit_LP$wts[i]>0)){
+    pred_grid <- Conj_predict(X.mod = X[ind_mod, ], y.mod = y[ind_mod],
+                              coords.mod = coords[ind_mod, ],
+                              deltasq_pick = CV_fit_LSE$grid_all$deltasq[i],
+                              phi_pick = CV_fit_LSE$grid_all$phi[i], 
+                              nu_pick = CV_fit_LSE$grid_all$nu[i],
+                              priors,
+                              X.ho = X[-ind_mod, ], 
+                              coords.ho = coords[-ind_mod, ])
+    y_pred_grid[, i] <- pred_grid$y_expect
+    w_expect_grid[, i] <- pred_grid$w_expect
+  }
+}
+# mean squared prediction error for y
+y_pred_stack_LSE = y_pred_grid %*% CV_fit_LSE$wts
+y_pred_stack_LP = y_pred_grid %*% CV_fit_LP$wts
+c(mean((y_pred_stack_LSE - y[-ind_mod])^2),
+  mean((y_pred_stack_LP - y[-ind_mod])^2))
+
+# mean squared prediction error for latent process 
+w_expect_stack_LSE = w_expect_grid %*% CV_fit_LSE$wts
+w_expect_stack_LP = w_expect_grid %*% CV_fit_LP$wts
+c(mean((w_expect_stack_LSE - w)^2), mean((w_expect_stack_LP - w)^2))
+
+
+## stacking Expected log pointwise predictive density ##
+lp_pred_grid <- matrix(0, nrow = N_ho, ncol = nrow(CV_fit_LSE$grid_all))
+for (i in 1:nrow(CV_fit_LSE$grid_all)){
+  if((CV_fit_LSE$wts[i] > 0) | (CV_fit_LP$wts[i] > 0)){
+    lp_pred_grid[, i] <- Conj_lpd(X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                                  coords.mod = coords[ind_mod, ], 
+                                  deltasq_pick = CV_fit_LSE$grid_all$deltasq[i],
+                                  phi_pick = CV_fit_LSE$grid_all$phi[i], 
+                                  nu_pick = CV_fit_LSE$grid_all$nu[i],
+                                  priors, X.ho = X[-ind_mod, ], 
+                                  y.ho = y[-ind_mod], 
+                                  coords.ho = coords[-ind_mod, ], MC = FALSE)
+  }
+}
+# ELPD
+c(mean(log(exp(lp_pred_grid) %*% CV_fit_LSE$wts)), 
+  mean(log(exp(lp_pred_grid) %*% CV_fit_LP$wts)))
+```
+
+### Stacked posterior samples
+Generate the posterior samples for the stacked predictive distribution. 
+```{r}
+pos_sam_LSE <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LSE, L1 = 900, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = 1,
+                      recover_w_obs = T, recover_w_U = T)
+pos_sam_LP <- 
+  stacking_pos_sample(Stack_fit = CV_fit_LP, L1 = 900, L2 = 900, 
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+                      coords.mod = coords[ind_mod, ], priors = priors,
+                      X.ho = X[-ind_mod, ], 
+                      coords.ho = coords[-ind_mod, ], seed = 2,
+                      recover_w_obs = T, recover_w_U = T)
+```
+Check the 95% CI of the stacked predictive distributions for the outcome on the 100 unobserved locations. 
+```{r, message=FALSE}
+library(ggplot2)
+library(dplyr)
+# Assuming y, ind_mod, pos_sam_LP$pred_y_U_stack_sam, and pos_sam_LSE$pred_y_U_stack_sam are defined
+# Function to calculate means and CIs
+calculate_means_and_cis <- function(pos_sam) {
+  row_means <- rowMeans(pos_sam)
+  CI <- apply(pos_sam, 1, 
+              function(x){quantile(x, probs = c(0.025, 0.975))})
+  data.frame(
+    mean = row_means,
+    lower = CI[1, ],
+    upper = CI[2, ]
+  )
+}
+
+# check y prediction # 
+lp_data <- calculate_means_and_cis(pos_sam_LP$pred_y_U_stack_sam)
+lp_data$x <- y[-ind_mod]
+cover_lp <- round(sum(lp_data$lower<lp_data$x & lp_data$upper>lp_data$x) / 
+  length(lp_data$x) *100, 1) 
+label_lp <- paste0('stacking of pds ', cover_lp,"% coverage")
+lp_data$source <- label_lp
+lse_data <- calculate_means_and_cis(pos_sam_LSE$pred_y_U_stack_sam)
+lse_data$x <-  y[-ind_mod]
+cover_lse <- round(sum(lse_data$lower<lse_data$x & lse_data$upper>lse_data$x) / 
+                    length(lse_data$x) *100, 1) 
+label_lse <- paste0('stacking of means ', cover_lse, "% coverage")
+lse_data$source <- label_lse
+
+# Combine data
+combined_data <- rbind(lse_data, lp_data)
+combined_data$source <- factor(combined_data$source, 
+                               levels = c(label_lse, label_lp))
+
+# Determine the common range for x and y if not already known
+x_range <- range(combined_data$x, na.rm = TRUE)
+y_range <- range(combined_data$mean, combined_data$lower, combined_data$upper, na.rm = TRUE)
+# Plot
+pts_y <- ggplot(combined_data, aes(x = x, y = mean)) +
+  geom_point(size = 0.2) +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.1, alpha = 0.2) +
+  geom_abline(intercept = 0, slope = 1) +
+  facet_wrap(~ source) +  # Use 'free_x' to unify y range
+  scale_x_continuous(limits = x_range) +
+  scale_y_continuous(limits = y_range) +
+  theme_bw() +
+  labs(x = "y", y = "mean and 95%CI")
+pts_y
+```
+
