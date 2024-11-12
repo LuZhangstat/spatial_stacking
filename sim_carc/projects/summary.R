@@ -10,7 +10,7 @@ source("utils.R")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 1 # simulation index 1 or 2
+sim_ind = 2 # simulation index 1, 2 or 3
 
 
 load(paste0("./sim_carc/results/sim", sim_ind, "_1.Rdata"))
@@ -51,7 +51,7 @@ ESS_MCMC_M <- array(NA, dim = c(N_sim, N_list, 3))
 dimnames(ESS_MCMC_M)[[3]] <- c("phi", "nu", "deltasq")
 
 
-for(i in (1:N_sim)){ #[c(-15, -22, -30)] for sim2
+for(i in (1:N_sim)){ 
   filename <- paste0("./sim_carc/results/sim", sim_ind, "_", i, ".Rdata")
   load(filename)
   #print(DIV_matrix)
@@ -136,9 +136,9 @@ ggsave(paste0("./sim_carc/pics/CVexperiment_sim", sim_ind, ".png"),
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
 
-sum(weights_nonzero_LSE) / (64 * 8) # 3.55 in sim1; 3.67 in sim2
+sum(weights_nonzero_LSE) / (64 * 8) # 3.55 in sim1; 3.87 in sim2; 3.9 in sim3
 weights_nonzero_LP = (weights_M_LP_all > 0.001)
-sum(weights_nonzero_LP) / (64 * 8) # 4.13 in sim1; 4.52 in sim2
+sum(weights_nonzero_LP) / (64 * 8) # 4.13 in sim1; 4.74 in sim2; 4.87 in sim3
 
 weight_data <- data.frame(
   nonzero_count = c(c(apply(weights_nonzero_LSE, 3:2, sum)), 
@@ -190,6 +190,8 @@ if(sim_ind == 1){
   leg_pos = c(0.8, 0.85)
 }else if (sim_ind == 2){
   leg_pos = c(0.5, 0.2)
+}else if (sim_ind == 3){
+  leg_pos = c(0.8, 0.88)
 }
 p_est_phi <- 
   ggplot(phi_dat, aes(x = N_sample, y = est_phi, color = label)) +
@@ -228,7 +230,10 @@ if(sim_ind == 1){
   leg_pos_nu = c(0.8, 0.15)
 }else if (sim_ind == 2){
   leg_pos_nu = c(0.8, 0.91)
+}else if (sim_ind == 3){
+  leg_pos_nu = c(0.8, 0.12)
 }
+
 p_est_nu <- 
   ggplot(nu_dat, aes(x = N_sample, y = est_nu, color = label)) +
   geom_violin(draw_quantiles = c(0.5))  + theme_bw() + ylim(c(0.2, 2)) +
@@ -268,6 +273,8 @@ if(sim_ind == 1){
   leg_pos_deltasq = "none"
 }else if (sim_ind == 2){
   leg_pos_deltasq = c(0.8, 0.8)
+}else if (sim_ind == 3){
+  leg_pos_deltasq = c(0.8, 0.88)
 }
 p_est_deltasq <- 
   ggplot(deltasq_dat, aes(x = N_sample, y = est_deltasq, color = label)) +
@@ -296,6 +303,8 @@ ESS_MCMC_dat$label <- factor(ESS_MCMC_dat$label, levels = 1:3,
 if(sim_ind == 1){
   leg_pos_ESS = "none"
 }else if (sim_ind == 2){
+  leg_pos_ESS = c(0.8, 0.9)
+}else if (sim_ind == 3){
   leg_pos_ESS = c(0.8, 0.9)
 }
 p_ESS_MCMC<- 
@@ -326,7 +335,7 @@ library(classInt)
 library(RColorBrewer)
 library(sp)
 
-r = 8 #r = 8 for sim 1 r =4 for sim2
+r = 6 #r = 8 for sim 1; r =4 for sim2; r = 6 for sim 3
 h <- 12
 surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$w), no.X = 300, 
                      no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
