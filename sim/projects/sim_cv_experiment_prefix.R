@@ -10,6 +10,7 @@ library("gridExtra")
 library(fields)
 library(INLA)
 source("utils.R") # utils2.R is the testing code #
+source("geo_func.R")
 #options(mc.cores = parallel::detectCores())
 
 ############################################################
@@ -17,9 +18,11 @@ source("utils.R") # utils2.R is the testing code #
 ############################################################
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-load("./sim_carc/results/sim1_1.RData")
-# default method #
 sim_ind = 1
+
+load(paste0("./sim_carc/results/sim", sim_ind, "_1.RData"))
+# default method #
+
 phi_grid = c(3, 14, 25, 36)   #3.5 to 35.8 #old: c(3, 9, 15, 31) 
 nu_grid = c(0.5, 1, 1.5, 1.75)
 deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq, 
@@ -29,7 +32,7 @@ deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq,
 deltasq_grid
 seed = 123
 
-r = 8 # r = 2,8 for sim1 r = 4 for sim2
+r = 8 # r = 2,8 for sim1; r = 4 for sim2; r = 6 for sim3
 ind_mod = raw_data[[r]]$ind_mod
 X <- raw_data[[r]]$X
 y <- raw_data[[r]]$y
@@ -86,7 +89,7 @@ y_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((y_U_CI_stack_LP[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.96 for sim1 r = 8; 0.88 for sim2 r = 4 
+# 0.96 for sim1 r = 8; 0.88 for sim2 r = 4; 0.92 for sim3 r=6
 
 cat("98%CI coverage:")
 y_U_CI_stack_LP <- 
@@ -94,7 +97,7 @@ y_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((y_U_CI_stack_LP[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.98 for sim1 r = 8; 0.93 for sim 2 r = 4
+#0.98 for sim1 r = 8; 0.93 for sim2 r = 4; 0.95 for sim3 r = 6
 
 # for w #
 cat("obs w 95%CI coverage:")
@@ -103,7 +106,7 @@ w_obs_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((w_obs_CI_stack_LP[1, ] < w[ind_mod]) & 
       (w_obs_CI_stack_LP[2, ] > w[ind_mod]))/length(w[raw_data[[r]]$ind_mod])
-# 1 for sim1 r=8; 0.935 for sim2 r = 4 
+# 1 for sim1 r = 8; 0.935 for sim2 r = 4; 1 for sim3 r = 6 
 
 cat("unobs w 95%CI coverage:")
 w_U_CI_stack_LP <- 
@@ -111,125 +114,169 @@ w_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((w_U_CI_stack_LP[1, ] < w[-ind_mod]) & 
       (w_U_CI_stack_LP[2, ] > w[-ind_mod]))/length(w[-raw_data[[r]]$ind_mod])
-# 1 for sim1 r = 8; 0.68 for sim2 r = 4 
-
-# INLA #
-df = data.frame(y=c(raw_data[[r]]$y[raw_data[[r]]$ind_mod], rep(NA, 100)), 
-                locx=raw_data[[r]]$coords[, 1], 
-                locy=raw_data[[r]]$coords[, 2], x = raw_data[[r]]$X[, 2])
-fake.locations = matrix(c(0,0,1,1, 0, 1, 1, 0), nrow = 4, byrow = T)
-n <- length(raw_data[[r]]$coords[, 1]) - 100
-mesh = inla.mesh.2d(loc = fake.locations, max.edge=c(2/sqrt(n), 10/sqrt(n)))
-mesh$n
-
-A = inla.spde.make.A(mesh=mesh, loc=data.matrix(df[ , c('locx', 'locy')]))
-prior.median.sd = 1; prior.median.range = 1/raw_data[[r]]$phi
-
-a1 <- raw_data[[r]]$nu +1
-spde1 = inla.spde2.pcmatern(mesh, alpha = a1,
-                            prior.range = c(prior.median.range, .5), 
-                            prior.sigma = c(prior.median.sd, .5))
-stack1 = inla.stack(tag='est',
-                    # - Name (nametag) of the stack
-                    # - Here: est for estimating
-                    data=list(y=df$y),
-                    effects=list(
-                      # - The Model Components
-                      s=1:spde1$n.spde, 
-                      # - The first is 's' (for spatial)
-                      data.frame(intercept=1, x=df$x)),
-                    # - The second is all fixed effects
-                    A=list(A, 1)
-)
-
-family = "gaussian"
-prior.median.sd.g = 1 # prior median for sigma.epsilon
-control.family = list(hyper = list(prec = list(
-  prior = "pc.prec", param = c(prior.median.sd.g,0.5))))
-
-initial.theta = NULL #c(2.35, 0.79, 0.46)
-
-res1 = inla(y~x + f(s, model=spde1), data=inla.stack.data(stack1),
-            family = family,
-            control.family = control.family,
-            control.predictor=list(A = inla.stack.A(stack1)),
-            quantiles=c(0.01, 0.025, 0.1, 0.5, 0.9, 0.975, 0.99),
-            control.mode = list(restart = T, theta = initial.theta))
-
-cat("95%CI coverage:")
-sum((res1$summary.fitted.values[
-  inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
-  "0.025quant"] < y[-raw_data[[r]]$ind_mod]) &
-    (res1$summary.fitted.values[
-      inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
-      "0.975quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.52 for sim1 r = 8; 0.55 for sim2 with r = 4
-
-cat("98%CI coverage:")
-sum((res1$summary.fitted.values[
-  inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
-  "0.01quant"] < y[-raw_data[[r]]$ind_mod]) &
-    (res1$summary.fitted.values[
-      inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
-      "0.99quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.58 for sim1 r = 8; 0.62 for sim2 r = 4
+# 1 for sim1 r = 8; 0.68 for sim2 r = 4; 1 for sim3 r = 6
 
 # test 2: posterior sample from marginal distribution #
 pick_ind <- seq(300, 1000, by = 11)
-all_prefix_ls <- cbind(MCMC_par[[r]][pick_ind, "tau.sq"] / 
+all_prefix_ls <- cbind(MCMC_par[[r]][pick_ind, "tau.sq"] /
                          MCMC_par[[r]][pick_ind, "sigma.sq"],
-                       MCMC_par[[r]][pick_ind, c("phi", "nu")]) 
+                       MCMC_par[[r]][pick_ind, c("phi", "nu")])
 colnames(all_prefix_ls) <- c("delatsq", "phi", "nu")
 all_prefix_ls <- as.data.frame(all_prefix_ls)
 
 CV_fit_LSE_P <- sp_stacking_K_fold3(
   X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
-  all_prefix_ls = all_prefix_ls, priors = priors, 
+  all_prefix_ls = all_prefix_ls, priors = priors,
   K_fold = K_fold, seed = seed, label = "LSE")
-cbind(CV_fit_LSE_P$grid_all[CV_fit_LSE_P$wts>0.00001, ], 
+cbind(CV_fit_LSE_P$grid_all[CV_fit_LSE_P$wts>0.00001, ],
       CV_fit_LSE_P$wts[CV_fit_LSE_P$wts>0.00001])
 
-pos_sam_LSE_P <- 
-  stacking_pos_sample(Stack_fit = CV_fit_LSE_P, L1 = 900, L2 = 900, 
-                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+pos_sam_LSE_P <-
+  stacking_pos_sample(Stack_fit = CV_fit_LSE_P, L1 = 900, L2 = 900,
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod],
                       coords.mod = coords[ind_mod, ], priors = priors,
-                      X.ho = X[-ind_mod, ], 
+                      X.ho = X[-ind_mod, ],
                       coords.ho = coords[-ind_mod, ], seed = 5,
                       recover_w_obs = T, recover_w_U = T)
 
 
 CV_fit_LP_P <- sp_stacking_K_fold3(
   X = X[ind_mod, ], y = y[ind_mod], coords = coords[ind_mod, ],
-  all_prefix_ls = all_prefix_ls, 
+  all_prefix_ls = all_prefix_ls,
   priors = priors, K_fold = K_fold,
   seed = seed, label = "LP", MC = FALSE)
-cbind(CV_fit_LP_P$grid_all[CV_fit_LP_P$wts>0.00001, ], 
+cbind(CV_fit_LP_P$grid_all[CV_fit_LP_P$wts>0.00001, ],
       CV_fit_LP_P$wts[CV_fit_LP_P$wts>0.00001])
 
-pos_sam_LP_P <- 
-  stacking_pos_sample(Stack_fit = CV_fit_LP_P, L1 = 900, L2 = 900, 
-                      X.mod = X[ind_mod, ], y.mod = y[ind_mod], 
+pos_sam_LP_P <-
+  stacking_pos_sample(Stack_fit = CV_fit_LP_P, L1 = 900, L2 = 900,
+                      X.mod = X[ind_mod, ], y.mod = y[ind_mod],
                       coords.mod = coords[ind_mod, ], priors = priors,
-                      X.ho = X[-ind_mod, ], 
+                      X.ho = X[-ind_mod, ],
                       coords.ho = coords[-ind_mod, ], seed = 6,
                       recover_w_obs = T, recover_w_U = T)
 
 cat("95%CI coverage:")
-y_U_CI_stack_LP_P <- 
-  apply(pos_sam_LP_P$pred_y_U_stack_sam, 1, 
+y_U_CI_stack_LP_P <-
+  apply(pos_sam_LP_P$pred_y_U_stack_sam, 1,
         function(x){quantile(x, probs = c(0.025, 0.975))})
-sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) & 
+sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) &
       (y_U_CI_stack_LP_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.96 for sim1 r=8; 0.88 for sim2 r = 4 
+#0.96 for sim1 r=8; 0.88 for sim2 r = 4; 0.93 for sim3 r = 6;
 
 cat("98%CI coverage:")
-y_U_CI_stack_LP_P <- 
-  apply(pos_sam_LP_P$pred_y_U_stack_sam, 1, 
+y_U_CI_stack_LP_P <-
+  apply(pos_sam_LP_P$pred_y_U_stack_sam, 1,
         function(x){quantile(x, probs = c(0.01, 0.99))})
-sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) & 
+sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) &
       (y_U_CI_stack_LP_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.98 for sim1 r=8; 0.93 for sim 2 r = 4
+#0.98 for sim1 r=8; 0.93 for sim 2 r = 4; 0.95 for sim3 r = 6;
 
+
+# test3: geoR test with modified function #
+geoR_test_label <- FALSE
+if(geoR_test_labe){
+  obj = cbind(raw_data[[r]]$coords[raw_data[[r]]$ind_mod, ], 
+              raw_data[[r]]$y[raw_data[[r]]$ind_mod],
+              raw_data[[r]]$X[raw_data[[r]]$ind_mod, 2])
+  geo_data <- as.geodata(obj, coords.col = 1:2, data.col = 3, covar.col = 4)
+  
+  OC <- output.control(simulations = TRUE, n.pred = 1000, 
+                       sim.means = TRUE, sim.vars = TRUE,
+                       quantile=c(0.025, 0.10, 0.25, 0.5, 0.75, 0.90, 0.975)) 
+  
+  sim.bayes.pred <- krige.bayes.mod(
+    geodata = geo_data,
+    locations = raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], # prediction locations
+    covar1 = raw_data[[r]]$X[-raw_data[[r]]$ind_mod, 2],
+    model = model.control(trend.d = ~covar1,
+                          trend.l = ~covar1,
+                          cov.model = "matern", kappa = 0.5), #kappa = 0.5 for sim1&3; kappa =1 for sim2
+    prior = prior.control(beta.prior = "flat",
+                          phi.prior = "uniform",
+                          #phi.disc = seq(1/36, 1/3, length = 8), # use default, will give 50 values...
+                          tausq.rel.prior = "uniform",
+                          tausq.rel.discrete =
+                            seq(deltasq_grid[1], deltasq_grid[4], length = 8)),
+    output = OC)
+  
+  cat("95%CI coverage:")
+  sum((sim.bayes.pred$predictive$quantiles.simulations$q2.5 < y[-ind_mod]) & 
+        (sim.bayes.pred$predictive$quantiles.simulations$q97.5 > y[-ind_mod]))/
+    length(y[-raw_data[[r]]$ind_mod])
+  # 0.56 for sim1 r = 8; 0.55 for sim2 r = 4; 0.71 for sim3 r=6
+  
+  # option: check the hist of geoR, compare with MCMC
+  qqplot(sim.bayes.pred$posterior$sample$sigmasq * 
+           sim.bayes.pred$posterior$sample$tausq.rel, 
+         MCMC_par[[r]][, "tau.sq"])
+  abline(a = 0, b = 1)
+}
+
+
+# test 4: INLA. (for fun) #
+INLA_test_label <- FALSE
+if(INLA_test_label){
+  df = data.frame(y=c(raw_data[[r]]$y[raw_data[[r]]$ind_mod], rep(NA, 100)),
+                  locx=raw_data[[r]]$coords[, 1],
+                  locy=raw_data[[r]]$coords[, 2], x = raw_data[[r]]$X[, 2])
+  fake.locations = matrix(c(0,0,1,1, 0, 1, 1, 0), nrow = 4, byrow = T)
+  n <- length(raw_data[[r]]$coords[, 1]) - 100
+  mesh = inla.mesh.2d(loc = fake.locations, max.edge=c(2/sqrt(n), 10/sqrt(n)))
+  mesh$n
+  
+  A = inla.spde.make.A(mesh=mesh, loc=data.matrix(df[ , c('locx', 'locy')]))
+  prior.median.sd = 1; prior.median.range = 1/raw_data[[r]]$phi
+  
+  a1 <- raw_data[[r]]$nu +1
+  spde1 = inla.spde2.pcmatern(mesh, alpha = a1,
+                              prior.range = c(prior.median.range, .5),
+                              prior.sigma = c(prior.median.sd, .5))
+  stack1 = inla.stack(tag='est',
+                      # - Name (nametag) of the stack
+                      # - Here: est for estimating
+                      data=list(y=df$y),
+                      effects=list(
+                        # - The Model Components
+                        s=1:spde1$n.spde,
+                        # - The first is 's' (for spatial)
+                        data.frame(intercept=1, x=df$x)),
+                      # - The second is all fixed effects
+                      A=list(A, 1)
+  )
+  
+  family = "gaussian"
+  prior.median.sd.g = 1 # prior median for sigma.epsilon
+  control.family = list(hyper = list(prec = list(
+    prior = "pc.prec", param = c(prior.median.sd.g,0.5))))
+  
+  initial.theta = NULL #c(2.35, 0.79, 0.46)
+  
+  res1 = inla(y~x + f(s, model=spde1), data=inla.stack.data(stack1),
+              family = family,
+              control.family = control.family,
+              control.predictor=list(A = inla.stack.A(stack1)),
+              quantiles=c(0.01, 0.025, 0.1, 0.5, 0.9, 0.975, 0.99),
+              control.mode = list(restart = T, theta = initial.theta))
+  
+  cat("95%CI coverage:")
+  sum((res1$summary.fitted.values[
+    inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
+    "0.025quant"] < y[-raw_data[[r]]$ind_mod]) &
+      (res1$summary.fitted.values[
+        inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
+        "0.975quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
+  # 0.52 for sim1 r = 8; 0.55 for sim2 with r = 4; 0.6 for sim3 r = 6;
+  
+  cat("98%CI coverage:")
+  sum((res1$summary.fitted.values[
+    inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
+    "0.01quant"] < y[-raw_data[[r]]$ind_mod]) &
+      (res1$summary.fitted.values[
+        inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
+        "0.99quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
+  # 0.58 for sim1 r = 8; 0.62 for sim2 r = 4; 0.67 for sim3 r=6
+}
 
 # compare sigmasq #
 draws_ls_sigmasq <- c()
@@ -276,8 +323,6 @@ ggsave(paste0("./sim/pics/tausq_prefix_compar", sim_ind, "_r", r, ".png"),
        plot = tausq_compar,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
-
-
 # check histograms for individuals (pick the 50th and 100th point)#
 ### fit with spBayes ###
 fit_flag <- FALSE
@@ -321,7 +366,7 @@ pos_y_U_CI_P <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) & 
       (pos_y_U_CI_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.96 for sim1 r=8;  0.89 for sim2 r = 4 
+# 0.96 for sim1 r=8;  0.89 for sim2 r = 4; 0.93 for sim3 r = 6; 
 
 cat("98%CI coverage:")
 pos_y_U_CI_P <- 
@@ -329,7 +374,7 @@ pos_y_U_CI_P <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) & 
       (pos_y_U_CI_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.99 for sim1 r=8; 0.94 for sim 2 r = 4
+#0.99 for sim1 r=8; 0.94 for sim 2 r = 4; 0.96 for sim3 r=6
 
 
 # compare beta1 #
@@ -378,6 +423,44 @@ ggsave(paste0("./sim/pics/beta2_prefix_compar", sim_ind, "_r", r, ".png"),
        width = 6.5, height = 3.5, units = "in", dpi = 600)
 
 
+
+# plots for geoR test #
+if(geoR_test_label){
+  draws_ls_geoR <- c()
+  draws_ls_geoR[[1]] <- MCMC_par[[r]][101:1000, "sigma.sq"]
+  draws_ls_geoR[[2]] <- pos_sam_LSE$sigmasq_sam
+  draws_ls_geoR[[3]] <- pos_sam_LP$sigmasq_sam
+  draws_ls_geoR[[4]] <- sim.bayes.pred$posterior$sample$sigmasq[101:1000]
+  draws_ls_geoR[[5]] <- MCMC_par[[r]][101:1000, "tau.sq"]
+  draws_ls_geoR[[6]] <- pos_sam_LSE$tausq_sam
+  draws_ls_geoR[[7]] <- pos_sam_LP$tausq_sam
+  draws_ls_geoR[[8]] <- sim.bayes.pred$posterior$sample$sigmasq[101:1000] * 
+    sim.bayes.pred$posterior$sample$tausq.rel[101:1000]
+  draws_ls_geoR[[9]] <- r.1$p.beta.recover.samples[101:1000, 1]
+  draws_ls_geoR[[10]] <- pos_sam_LSE$pred_beta_stack_sam[1, ]
+  draws_ls_geoR[[11]] <- pos_sam_LP$pred_beta_stack_sam[1, ]
+  draws_ls_geoR[[12]] <- sim.bayes.pred$posterior$sample$beta0[101:1000]
+  draws_ls_geoR[[13]] <- r.1$p.beta.recover.samples[101:1000, 2]
+  draws_ls_geoR[[14]] <- pos_sam_LSE$pred_beta_stack_sam[2, ]
+  draws_ls_geoR[[15]] <- pos_sam_LP$pred_beta_stack_sam[2, ]
+  draws_ls_geoR[[16]] <- sim.bayes.pred$posterior$sample$beta1[101:1000]
+  
+  geoR_compar <- 
+    hist_compar_geoR(draws_ls = draws_ls_geoR, 
+                type_colors = c("#999999", "#69b3a2", "#404080", "#56B4E9"),
+                type_names = c("MCMC", "stacking of means", 
+                               "stacking of pds", "geoR"), 
+                test_names = c("sigmasq", "tausq", "intercept", "beta1"), 
+                true_values = c(raw_data[[r]]$sigma.sq, raw_data[[r]]$tau.sq,
+                               raw_data[[r]]$beta[1], raw_data[[r]]$beta[2]),
+                yname = NULL, bins = 45)
+  geoR_compar
+  ggsave(paste0("./sim/pics/geoR_inf_compar", sim_ind, "_r", r, ".png"),
+         plot = geoR_compar,
+         width = 8.0, height = 3.5, units = "in", dpi = 600)
+}
+
+
 # check y #
 pick_indi <- c(50, 90)
 draws_ls1 <- c()
@@ -422,6 +505,35 @@ ggsave(paste0("./sim/pics/indi50_prefix_compar", sim_ind, "ICI_r", r, ".png"),
 ggsave(paste0("./sim/pics/indi90_prefix_compar", sim_ind, "ICI_r", r, ".png"),
        plot = individual_y_compar2,
        width = 6.5, height = 3.5, units = "in", dpi = 600)
+
+
+# plots for geoR test for individual y #
+if(geoR_test_label){
+  draws_ls_y_geoR <- c()
+  draws_ls_y_geoR[[1]] <- pos_wy$y.ho.sample[pick_indi[1], 101:1000]
+  draws_ls_y_geoR[[2]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[1], ]
+  draws_ls_y_geoR[[3]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[1], ]
+  draws_ls_y_geoR[[4]] <- sim.bayes.pred$predictive$simulations[pick_indi[1], 101:1000]
+  draws_ls_y_geoR[[5]] <- pos_wy$y.ho.sample[pick_indi[2], 101:1000]
+  draws_ls_y_geoR[[6]] <- pos_sam_LSE$pred_y_U_stack_sam[pick_indi[2], ]
+  draws_ls_y_geoR[[7]] <- pos_sam_LP$pred_y_U_stack_sam[pick_indi[2], ]
+  draws_ls_y_geoR[[8]] <- sim.bayes.pred$predictive$simulations[pick_indi[2], 101:1000]
+  
+  geoR_y_compar <- 
+    hist_compar_geoR(draws_ls = draws_ls_y_geoR, 
+                     type_colors = c("#999999", "#69b3a2", "#404080", "#56B4E9"),
+                     type_names = c("MCMC", "stacking of means", 
+                                    "stacking of pds", "geoR"), 
+                     test_names = c("y(s50)", "y(s90)"), 
+                     true_values = y[-ind_mod][pick_indi],
+                     yname = NULL, bins = 45)
+  geoR_y_compar
+  ggsave(paste0("./sim/pics/geoR_y_compar", sim_ind, "_r", r, ".png"),
+         plot = geoR_y_compar,
+         width = 8.0, height = 3.5, units = "in", dpi = 600)
+}
+
+
 
 # check latent process z #
 pick_indi <- c(50, 90)
@@ -558,20 +670,20 @@ calculate_means_and_cis <- function(pos_sam) {
 lp_data <- calculate_means_and_cis(pos_sam_LP$pred_y_U_stack_sam)
 lp_data$x <- y[-ind_mod]
 cover_lp <- round(sum(lp_data$lower<lp_data$x & lp_data$upper>lp_data$x) / 
-  length(lp_data$x) *100, 1) 
+                    length(lp_data$x) *100, 1) 
 label_lp <- paste0('stacking of pds ', cover_lp,"% coverage")
 lp_data$source <- label_lp
 lse_data <- calculate_means_and_cis(pos_sam_LSE$pred_y_U_stack_sam)
 lse_data$x <-  y[-ind_mod]
 cover_lse <- round(sum(lse_data$lower<lse_data$x & lse_data$upper>lse_data$x) / 
-                    length(lse_data$x) *100, 1) 
+                     length(lse_data$x) *100, 1) 
 label_lse <- paste0('stacking of means ', cover_lse, "% coverage")
 lse_data$source <- label_lse
 mcmc_data <- calculate_means_and_cis(pos_wy$y.ho.sample)
 mcmc_data$x <-  y[-ind_mod]
 cover_mcmc <- round(sum(mcmc_data$lower<mcmc_data$x & 
                           mcmc_data$upper>mcmc_data$x) / 
-                     length(mcmc_data$x) *100, 1) 
+                      length(mcmc_data$x) *100, 1) 
 label_mcmc <- paste0('MCMC ', cover_mcmc, "% coverage")
 mcmc_data$source <- label_mcmc
 
@@ -598,6 +710,41 @@ pts_y
 ggsave(paste0("./sim/pics/y_U_95CIsim", sim_ind, "_r", r, ".png"),
        plot = pts_y,
        width = 8, height = 3, units = "in", dpi = 600)
+
+# the geoR test for 95%CI
+if(geoR_test_label){
+  geoR_data <- calculate_means_and_cis(sim.bayes.pred$predictive$simulations)
+  geoR_data$x <-  y[-ind_mod]
+  cover_geoR <- round(sum(geoR_data$lower<geoR_data$x & 
+                            geoR_data$upper>geoR_data$x) / 
+                        length(geoR_data$x) *100, 1) 
+  label_geoR <- paste0('geoR ', cover_geoR, "% coverage")
+  geoR_data$source <- label_geoR
+  
+  combined_data <- rbind(lse_data, lp_data, mcmc_data, geoR_data)
+  combined_data$source <- factor(combined_data$source, 
+                                 levels = c(label_lse, label_lp, label_mcmc,
+                                            label_geoR))
+  
+  # Determine the common range for x and y if not already known
+  x_range <- range(combined_data$x, na.rm = TRUE)
+  y_range <- range(combined_data$mean, combined_data$lower, combined_data$upper, 
+                   na.rm = TRUE)
+  # Plot
+  pts_y <- ggplot(combined_data, aes(x = x, y = mean)) +
+    geom_point(size = 0.2) +
+    geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.1, alpha = 0.2) +
+    geom_abline(intercept = 0, slope = 1) +
+    facet_wrap(~ source, nrow = 1) +  # Use 'free_x' to unify y range
+    scale_x_continuous(limits = x_range) +
+    scale_y_continuous(limits = y_range) +
+    theme_bw() +
+    labs(x = "y", y = "mean and 95%CI")
+  pts_y
+  ggsave(paste0("./sim/pics/geoR_y_U_95CIsim", sim_ind, "_r", r, ".png"),
+         plot = pts_y,
+         width = 9, height = 3, units = "in", dpi = 600)
+}
 
 # check observed w prediction # 
 lp_data <- calculate_means_and_cis(

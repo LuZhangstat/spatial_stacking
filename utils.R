@@ -1269,3 +1269,36 @@ hist_compar <- function(draws_ls, type_colors, type_names, test_names,
   
   return(base_plot)
 }
+
+hist_compar_geoR <- function(draws_ls, type_colors, type_names, test_names,
+                             true_values, yname, bins = 30, INLA_CI = NULL){
+  # function for comparing posterior distributions
+  type_ls <- rep(1:length(type_names), length(test_names))
+  test_ls <- rep(1:length(test_names), each = length(type_names))
+  
+  n_ls <- sapply(draws_ls, length)
+  param_dt = 
+    data.frame(value = c(unlist(draws_ls)),
+               type = c(sapply(1:length(type_ls), 
+                               f <- function(x){rep(type_ls[x], n_ls[x])})),
+               test = c(sapply(1:length(test_ls), 
+                               f <- function(x){rep(test_ls[x], n_ls[x])})))
+  
+  param_dt$type <- factor(param_dt$type, levels = 1:length(type_names), 
+                          labels = type_names)
+  param_dt$test <- factor(param_dt$test, levels = 1:length(test_names), 
+                          labels = test_names)
+  param_dt <- param_dt %>%
+    mutate(true_value = true_values[match(test, test_names)])
+  
+  base_plot = param_dt %>% 
+    ggplot(aes(x=value, fill=type, y=after_stat(density))) + 
+    geom_density(alpha=0.6) +
+    scale_fill_manual(values=type_colors) +
+    geom_vline(aes(xintercept=true_value), color = "red")+
+    theme_bw(base_size = 18) + xlab(yname) +
+    labs(fill="") + facet_wrap(~ test, nrow = 1, scales = "free_x") + 
+    theme(legend.position="bottom")
+  
+  return(base_plot)
+}
