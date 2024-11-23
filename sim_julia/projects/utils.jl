@@ -191,7 +191,7 @@ function stacking_prediction_LSE(coords, nu_pick, phi_pick, deltasq_grid,
     ## compute expectation of response in fold k ##
     
     # preallocation and precomputation
-    L_grid_deltasq = length(deltasq_grid);
+    #L_grid_deltasq = length(deltasq_grid);
     out_put = Array{Float64, 2}(undef, nk_k_list[k], L_grid_deltasq);
     chol_inv_M = Array{Float64, 2}(undef, nk_list[k] + p, nk_list[k] + p);
     u = Array{Float64, 1}(undef, nk_list[k] + p);
@@ -434,6 +434,36 @@ end
 
 ## compute the stacking weights ##
 function QP_stacking_weight(Y_hat::Matrix, y::Vector)
+    m, n = size(Y_hat);
+    @boundscheck m == length(y) || throw(BoundsError());
+
+    # Initialize the model
+    model = Model(Mosek.Optimizer);
+    JuMP.set_optimizer_attribute(model, "LOG", 0);  # Set the LOG attribute for Mosek
+
+    # Define the variables with non-negativity constraints
+    @variable(model, w[1:n] >= 0);
+
+    # Define the objective
+    @objective(model, Min, sum((y[i] - sum(Y_hat[i, j] * w[j] for j in 1:n))^2 for i in 1:m));
+
+    # Add the constraint that weights sum to 1
+    @constraint(model, sum(w) == 1);
+
+    # Solve the problem
+    optimize!(model);
+
+    # Return the solution
+    if termination_status(model) == MOI.OPTIMAL
+        return value.(w)
+    else
+        error("Optimization problem did not solve successfully: $(termination_status(model))")
+    end
+end
+
+
+#=
+function QP_stacking_weight(Y_hat::Matrix, y::Vector)
     m,n = size(Y_hat)
     @boundscheck m == length(y) || throw(BoundsError())
     
@@ -445,21 +475,26 @@ function QP_stacking_weight(Y_hat::Matrix, y::Vector)
     solve!(problem, solver);
     return w.value[:]
 end
+=#
 
 
-#=
+
+
 function stacking_weight(lpd_point::AbstractMatrix)
     lp_m = mean(lpd_point);
     lpd_point .-= lp_m;  # Rescale the log-density for numerical stability
     exp_lpd_point = exp.(lpd_point);
 
-    model = Model(Ipopt.Optimizer);
+    model = Model(Ipopt.Optimizer); #Mosek is deprecated. Use Ipopt (Interior Point OPTimizer), a software package for large-scale nonlinear optimization.
     JuMP.set_optimizer_attribute(model, "print_level", 0);  # Equivalent to Mosek's LOG=0 for Ipopt
     
     JuMP.register(model, :sum, 1, sum, autodiff = true);
 
     @variable(model, w[1:size(lpd_point, 2)] >= 0);  # Define variables with non-negativity constraint
-    @NLobjective(model, Max, sum(log.(exp_lpd_point * w)));  # Define the nonlinear objective
+    #@NLobjective(model, Max, sum(log.(exp_lpd_point * w)));  # Define the nonlinear objective
+    @NLobjective(model, Max, sum(log(sum(exp_lpd_point[i, j] * w[j] 
+        for j in 1:size(lpd_point, 2))) for i in 1:size(lpd_point, 1)));
+
     @constraint(model, sum(w) == 1);  # Add the constraints
 
     optimize!(model);  # Solve the optimization problem
@@ -470,10 +505,10 @@ function stacking_weight(lpd_point::AbstractMatrix)
         error("Optimization problem did not solve successfully: $(termination_status(model))");
     end
 end
-=#
 
 
 
+#=
 function stacking_weight(lpd_point::AbstractMatrix)
     
     lp_m = mean(lpd_point);
@@ -489,6 +524,7 @@ function stacking_weight(lpd_point::AbstractMatrix)
     return w.value[:]
     
 end
+=#
 
 
 
@@ -532,9 +568,12 @@ function sp_stacking_K_fold(X, y, coords, deltasq_grid, phi_grid,
     ## Compute expectation for stacking ##
     prog = Progress(size(grid_phi_nu, 1), 1, "Computing initial pass...", 50)
     for i1 in 1:size(grid_phi_nu, 1)
+        #println("Thread $(Threads.threadid()) handles $i1");
+        #t_start = time()
         phi_pick = grid_phi_nu[i1, 1];
         nu_pick = grid_phi_nu[i1, 2];
-        Threads.@threads for k in 1:K_fold
+        #Threads.@threads 
+        for k in 1:K_fold
             Random.seed!(seed + (i1 - 1) * K_fold + k);
             if label == "LSE"
                 y_expect[CV_ind_hold_ls[k], 
@@ -551,6 +590,7 @@ function sp_stacking_K_fold(X, y, coords, deltasq_grid, phi_grid,
                     y_sq_sum_list, Priors, J);
             end     
         end
+        #println("Thread $(Threads.threadid()) finished $i1 in $(time() - t_start) seconds");
         next!(prog)
     end
     
@@ -603,10 +643,14 @@ function sp_stacking_K_fold_MT(X, y, coords, deltasq_grid, phi_grid,
     L_grid_deltasq  = length(deltasq_grid);
     
     ## Compute expectation for stacking ##
+    #println("start: ");
     #prog = Progress(size(grid_phi_nu, 1), 1, "Computing initial pass...", 50)
     Threads.@threads for i1 in 1:size(grid_phi_nu, 1)
+        #println("Thread $(Threads.threadid()) handles $i1");
+        #t_start = time()
         phi_pick = grid_phi_nu[i1, 1];
         nu_pick = grid_phi_nu[i1, 2];
+        #Threads.@threads 
         for k in 1:K_fold
             Random.seed!(seed + (i1 - 1) * K_fold + k);
             if label == "LSE"
@@ -624,12 +668,249 @@ function sp_stacking_K_fold_MT(X, y, coords, deltasq_grid, phi_grid,
                     y_sq_sum_list, Priors, J);
             end     
         end
+        #println("Thread $(Threads.threadid()) finished $i1 in $(time() - t_start) seconds");
         #next!(prog)
     end
     
     # compute stacking weights
     if label == "LSE"
         w = QP_stacking_weight(y_expect, y);
+    else
+        w = stacking_weight(lp_expect);
+    end
+    
+    #return grid_all, weights, and label 
+    return Dict(:grid_all => grid_all, :w => w, :label => label)
+end
+
+### code refining ###
+function compute_R(coords; ν=1.0, ϕ = 6.0, σ2 = 1.0)
+    ## compute the inverse Matern covariance matrix ##
+    M = pairwise(Euclidean(), coords, dims = 2);
+    MaternluU!(M; ν = ν, ϕ = ϕ, σ2 = σ2);
+    M = Symmetric(M, :U);
+end
+
+function compute_invR_nk_lit(R_full, CholR, k, nk_k_ind, nk_list)
+    if k == 1
+        Lnk =  cholesky(R_full[nk_k_ind[k+1]:(nk_k_ind[K_fold+1]-1), 
+            nk_k_ind[k+1]:(nk_k_ind[K_fold+1]-1)]).U;
+    elseif (k>1)&(k<K_fold)
+        Lnk = Array{Float64, 2}(undef, nk_list[k], nk_list[k]);
+        Lnk[1:(nk_k_ind[k]-1), 1:(nk_k_ind[k]-1)] .= CholR[1:(nk_k_ind[k]-1), 1:(nk_k_ind[k]-1)];
+        Lnk[1:(nk_k_ind[k]-1), nk_k_ind[k]:nk_list[k]] .= 
+            CholR[1:(nk_k_ind[k]-1), nk_k_ind[k+1]:(nk_k_ind[K_fold+1]-1)];
+                
+        # Extract the relevant submatrix of `CholR`
+        submatrix = CholR[nk_k_ind[k]:(nk_k_ind[K_fold+1]-1), nk_k_ind[k+1]:(nk_k_ind[K_fold+1]-1)]
+
+        # Compute the upper triangular Cholesky decomposition efficiently
+        Lnk[nk_k_ind[k]:nk_list[k], nk_k_ind[k]:nk_list[k]] .= cholesky(submatrix' * submatrix).U;
+        
+        Lnk = UpperTriangular(Lnk);
+    else
+        Lnk = UpperTriangular(CholR[1:(nk_k_ind[K_fold]-1), 1:(nk_k_ind[K_fold]-1)]);
+    end
+    LinearAlgebra.inv!(Lnk);
+    return Lnk*Lnk';
+end
+
+function stacking_prediction_LSE_all(R_full, CholR, deltasq_grid, L_grid_deltasq,
+        K_fold, p, nk_list, nk_k_list, nk_k_ind, y_ord, X_ord, XTX_list, XTy_list, priors)
+    
+    ## compute expectation of response in fold k ##
+    out_put = Array{Float64, 2}(undef, nk_k_ind[K_fold+1]-1, L_grid_deltasq);
+    for k in 1:K_fold
+    # preallocation and precomputation
+    
+        chol_inv_M = Array{Float64, 2}(undef, nk_list[k] + p, nk_list[k] + p);
+        u = Array{Float64, 1}(undef, nk_list[k] + p);
+    
+        invR_nk = compute_invR_nk_lit(R_full, CholR, k, nk_k_ind, nk_list);
+        nk_indices = setdiff(1:(nk_k_ind[K_fold+1]-1), nk_k_ind[k]:(nk_k_ind[k+1]-1));
+        R_k_nk = R_full[nk_k_ind[k]:(nk_k_ind[k+1]-1), nk_indices];
+    
+        # for each candidate value deltasq #
+        for i2 in 1:L_grid_deltasq
+            deltasq_pick = deltasq_grid[i2];
+            if p == 0
+                chol_inv_M[:] = invR_nk; 
+                plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
+                cholesky!(Symmetric(chol_inv_M, :U));
+                u[:] = y_ord[nk_indices] /  deltasq_pick;
+            else
+                chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + priors["inv_V_β"];
+                    chol_inv_M[1:p, (p+1):end] = X_ord[:, nk_indices] / deltasq_pick;
+                chol_inv_M[(p+1):end, (p+1):end] = invR_nk; 
+                plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
+                #print("in the inner for loop \n");
+                cholesky!(Symmetric(chol_inv_M, :U));
+                #print("right after inner chol \n");
+                u[:] = [priors["inv_V_μ_β"] + XTy_list[k] / deltasq_pick; 
+                    y_ord[nk_indices] /  deltasq_pick];
+            end
+
+            ldiv!(UpperTriangular(chol_inv_M)', u);  # u2 = chol_inv_M.L \ u;
+        
+            ldiv!(UpperTriangular(chol_inv_M), u); # compute the posterior expectation of β and z 
+
+            if p == 0
+                out_put[nk_k_ind[k]:(nk_k_ind[k+1]-1), i2] = R_k_nk * (invR_nk * u);
+            else
+                out_put[nk_k_ind[k]:(nk_k_ind[k+1]-1), i2] = 
+                    (X_ord[:, nk_k_ind[k]:(nk_k_ind[k+1]-1)]' * u[1:p]) + R_k_nk * (invR_nk * u[(p + 1):end]);
+            end     
+        end
+    end
+    return out_put
+end
+
+function stacking_prediction_LP_all(R_full, CholR, deltasq_grid, L_grid_deltasq,
+        K_fold, p, nk_list, nk_k_list, nk_k_ind, y_ord, X_ord, XTX_list, XTy_list, 
+        y_sq_sum_list, priors)
+    
+    ## compute expected log predictive density of response in fold k ##
+
+    # preallocation and precomputation
+    out_put = Array{Float64, 2}(undef, nk_k_ind[K_fold+1]-1, L_grid_deltasq);
+    
+    for k in 1:K_fold
+        chol_inv_M = Array{Float64, 2}(undef, nk_list[k] + p, nk_list[k] + p);
+        u = Array{Float64, 1}(undef, nk_list[k] + p);
+    
+        invR_nk = compute_invR_nk_lit(R_full, CholR, k, nk_k_ind, nk_list);
+        nk_indices = setdiff(1:(nk_k_ind[K_fold+1]-1), nk_k_ind[k]:(nk_k_ind[k+1]-1));
+        R_k_nk = R_full[nk_k_ind[k]:(nk_k_ind[k+1]-1), nk_indices];
+        
+        a_star = 0.0; b_star = 0.0;
+        
+        
+        H = Array{Float64, 2}(undef, nk_k_list[k], nk_list[k] + p);
+        y_U_store = Array{Float64, 1}(undef, nk_k_list[k]);
+        Vs_store = Array{Float64, 1}(undef, nk_k_list[k]);
+        one_v = ones(nk_list[k] + p);
+    
+        for i2 in 1:L_grid_deltasq
+            deltasq_pick = deltasq_grid[i2];
+            if p == 0
+                chol_inv_M[:] = invR_nk; 
+                plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
+                cholesky!(Symmetric(chol_inv_M, :U));
+                u[:] = y_ord[nk_indices] /  deltasq_pick;
+            else
+                chol_inv_M[1:p, 1:p] = XTX_list[k] / deltasq_pick + priors["inv_V_β"];
+                chol_inv_M[1:p, (p+1):end] = X_ord[:, nk_indices] / deltasq_pick;
+                chol_inv_M[(p+1):end, (p+1):end] = invR_nk; 
+                plus_cI!(chol_inv_M, 1 / deltasq_pick, p);
+                cholesky!(Symmetric(chol_inv_M, :U));
+                u[:] = [priors["inv_V_μ_β"] + XTy_list[k] / deltasq_pick; 
+                    y_ord[nk_indices] /  deltasq_pick];
+            end
+
+            ldiv!(UpperTriangular(chol_inv_M)', u);  # u2 = chol_inv_M.L \ u;              
+              
+            ## Stacking based on log point-wise predictive density
+            if p == 0
+                b_star = priors["bσ"] + 0.5 * (y_sq_sum_list[k] / deltasq_pick - norm(u)^2);
+            else
+                b_star = priors["bσ"] + 0.5 * (y_sq_sum_list[k] / deltasq_pick + 
+                    dot(priors["μβ"], priors["inv_V_μ_β"]) - norm(u)^2);
+            end
+            a_star = priors["aσ"] + nk_list[k] / 2;
+        
+            ldiv!(UpperTriangular(chol_inv_M), u); # compute the posterior expectation of β and z 
+
+            lp_c = -0.5 * log(2 * pi) + loggamma(a_star + 0.5) - 
+                loggamma(a_star) + a_star * log(b_star); # compute the constant related to a_star b_star
+            if p == 0
+                mul!(H, R_k_nk, invR_nk);
+            else
+                H[:, 1:p] = X_ord[:, nk_k_ind[k]:(nk_k_ind[k+1]-1)]';
+                H[:, (p+1):end] = R_k_nk * invR_nk;
+            end
+
+            # posterior expectations for observations in fold k 
+            mul!(y_U_store, H, u); 
+            # variance of the marignal posterior predictive distr
+            rdiv!(H, UpperTriangular(chol_inv_M));
+            row_squaresum_and_plus!(Vs_store, H, deltasq_pick);
+            out_put[nk_k_ind[k]:(nk_k_ind[k+1]-1), i2] = lp_c .- 0.5 * log.(Vs_store) .- (a_star + 0.5) .* 
+                log.(b_star .+ (y_ord[nk_k_ind[k]:(nk_k_ind[k+1]-1)] - y_U_store).^2 ./ (2 * Vs_store));
+        end
+    end
+    return out_put
+end
+
+function sp_stacking_K_fold_V2(X, y, coords, deltasq_grid, phi_grid,
+    nu_grid, Priors; K_fold = 10, seed = 123, label = "LSE")
+    ## experimential multithread version of sp_stacking_K_fold
+    
+    Random.seed!(seed);
+    # pre-computation and pre-allocation #
+    N = size(X, 2);
+    CV_ind_ls = collect(Kfold(N, K_fold)); # index of train data in CV
+    CV_ind_hold_ls = [setdiff(1:N, CV_ind_ls[k]) for k in 1:K_fold]; # index of held-out data in CV
+    N_grid = length(deltasq_grid) * length(phi_grid) * length(nu_grid);
+    nk_list = [length(x) for x in CV_ind_ls]; # be careful, different from the nk_list in my R code
+    nk_k_list = [(N - x) for x in nk_list];   # This is the nk_list in my R code
+    nk_k_ind = vcat(1, [sum(nk_k_list[1:k])+1 for k in 1:K_fold]); # for partition the reorders data
+    CV_reorder_ind = vcat([CV_ind_hold_ls[k] for k in 1:K_fold]...);
+
+    if X == Nothing()
+        p = 0;
+    else
+        p = size(X, 1);
+        Priors["inv_V_μ_β"] = Priors["inv_V_β"] * Priors["μβ"];
+        X_ord = X[:, CV_reorder_ind]; y_ord = y[CV_reorder_ind];
+        XTX = X_ord * X_ord'; XTy = X_ord * y_ord;
+        XTX_list = [XTX - X_ord[:, nk_k_ind[k]:(nk_k_ind[k+1]-1)] * X_ord[:, nk_k_ind[k]:(nk_k_ind[k+1]-1)]' 
+            for k in 1:K_fold];
+        XTy_list = [XTy - X_ord[:, nk_k_ind[k]:(nk_k_ind[k+1]-1)] * y_ord[nk_k_ind[k]:(nk_k_ind[k+1]-1)] 
+            for k in 1:K_fold];
+    end
+
+    if label == "LSE"
+        y_expect = Array{Float64, 2}(undef, N, N_grid);
+    elseif label == "LP"
+        lp_expect = Array{Float64, 2}(undef, N, N_grid);
+        y_sq_sum_list = [norm(y_ord[setdiff(1:N, nk_k_ind[k]:(nk_k_ind[k+1]-1))])^2 for k in 1:K_fold];
+    else 
+        print("label has to be LSE or LP");
+    end
+
+    grid_phi_nu = vcat([[x y] for x in phi_grid, y in nu_grid]...);
+    grid_all = vcat([[x y z] for x in phi_grid, y in nu_grid, z in deltasq_grid]...);
+    L_grid_deltasq = length(deltasq_grid);
+        
+    ## Compute expectation for stacking ##
+    #println("start: ");
+    #prog = Progress(size(grid_phi_nu, 1), 1, "Computing initial pass...", 50)
+    Threads.@threads for i1 in 1:size(grid_phi_nu, 1)
+        #println("Thread $(Threads.threadid()) handles $i1");
+        #t_start = time()
+        phi_pick = grid_phi_nu[i1, 1];
+        nu_pick = grid_phi_nu[i1, 2];
+        coords_ord = coords[:, CV_reorder_ind]; # order by 10 folds
+        R_full = compute_R(coords_ord, ν = nu_pick, ϕ = phi_pick);
+        CholR = cholesky(R_full).U;
+        if label == "LSE"
+            y_expect[:, (i1 - 1) * L_grid_deltasq .+ (1:L_grid_deltasq)] = 
+                    stacking_prediction_LSE_all(R_full, CholR, deltasq_grid, L_grid_deltasq,
+                    K_fold, p, nk_list, nk_k_list, nk_k_ind, y_ord, X_ord, XTX_list, XTy_list, 
+                    Priors); 
+        else 
+            lp_expect[:, (i1 - 1) * L_grid_deltasq .+ (1:L_grid_deltasq)] = 
+                stacking_prediction_LP_all(R_full, CholR, deltasq_grid, L_grid_deltasq,
+                    K_fold, p, nk_list, nk_k_list, nk_k_ind, y_ord, X_ord, XTX_list, XTy_list, 
+                    y_sq_sum_list, Priors);
+        end
+        #println("Thread $(Threads.threadid()) finished $i1 in $(time() - t_start) seconds");
+        #next!(prog)
+    end
+    
+    # compute stacking weights
+    if label == "LSE"
+        w = QP_stacking_weight(y_expect, y_ord);
     else
         w = stacking_weight(lp_expect);
     end
