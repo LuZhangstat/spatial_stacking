@@ -6,11 +6,13 @@ library(ggplot2)
 library("gridExtra")
 library("coda")
 
+#' Figure  S12: Distributions of the diagnostic metrics for prediction performance 
+
 # colorblind-friendly palettes
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 3 # simulation index 1 or 2
+sim_ind = 4 # simulation index 1, 2, 3 or 4
 
 
 load(paste0("./sim_carc/results/sim", sim_ind, "_1.Rdata"))
