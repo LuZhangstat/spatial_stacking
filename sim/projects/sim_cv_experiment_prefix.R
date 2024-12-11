@@ -8,7 +8,12 @@ library(geoR)
 library(rbenchmark)
 library("gridExtra")
 library(fields)
-library(INLA)
+#library(INLA)
+library(coda)
+library(MBA)
+library(classInt)
+library(RColorBrewer)
+library(sp)
 source("utils.R") # utils2.R is the testing code #
 source("geo_func.R")
 #options(mc.cores = parallel::detectCores())
@@ -18,7 +23,7 @@ source("geo_func.R")
 ############################################################
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 1
+sim_ind = 4
 
 load(paste0("./sim_carc/results/sim", sim_ind, "_1.RData"))
 # default method #
@@ -32,7 +37,7 @@ deltasq_grid <- pick_deltasq(E_sigmasq = raw_data[[1]]$sigma.sq,
 deltasq_grid
 seed = 123
 
-r = 8 # r = 2,8 for sim1; r = 4 for sim2; r = 6 for sim3
+r = 6 # r = 8 for sim1; r = 4 for sim2; r = 2 for sim3; r = 6 for sim4
 ind_mod = raw_data[[r]]$ind_mod
 X <- raw_data[[r]]$X
 y <- raw_data[[r]]$y
@@ -89,7 +94,7 @@ y_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((y_U_CI_stack_LP[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.96 for sim1 r = 8; 0.88 for sim2 r = 4; 0.92 for sim3 r=6
+# 0.96 for sim1 r = 8; 0.88 for sim2 r = 4; 0.96 for sim3 r=2; 0.95 for sim4
 
 cat("98%CI coverage:")
 y_U_CI_stack_LP <- 
@@ -97,7 +102,7 @@ y_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((y_U_CI_stack_LP[1, ] < y[-ind_mod]) & 
       (y_U_CI_stack_LP[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.98 for sim1 r = 8; 0.93 for sim2 r = 4; 0.95 for sim3 r = 6
+#0.98 for sim1 r = 8; 0.93 for sim2 r = 4; 0.98 for sim3 r = 2; 0.97 for sim4 r =6
 
 # for w #
 cat("obs w 95%CI coverage:")
@@ -106,7 +111,7 @@ w_obs_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((w_obs_CI_stack_LP[1, ] < w[ind_mod]) & 
       (w_obs_CI_stack_LP[2, ] > w[ind_mod]))/length(w[raw_data[[r]]$ind_mod])
-# 1 for sim1 r = 8; 0.935 for sim2 r = 4; 1 for sim3 r = 6 
+# 1 for sim1 r = 8; 0.935 for sim2 r = 4; 1 for sim3 r = 2; 1 for sim4 r = 6
 
 cat("unobs w 95%CI coverage:")
 w_U_CI_stack_LP <- 
@@ -114,7 +119,7 @@ w_U_CI_stack_LP <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((w_U_CI_stack_LP[1, ] < w[-ind_mod]) & 
       (w_U_CI_stack_LP[2, ] > w[-ind_mod]))/length(w[-raw_data[[r]]$ind_mod])
-# 1 for sim1 r = 8; 0.68 for sim2 r = 4; 1 for sim3 r = 6
+# 1 for sim1 r = 8; 0.68 for sim2 r = 4; 1 for sim3 r = 2; 1 for sim 4 r=6
 
 # test 2: posterior sample from marginal distribution #
 pick_ind <- seq(300, 1000, by = 11)
@@ -162,7 +167,7 @@ y_U_CI_stack_LP_P <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) &
       (y_U_CI_stack_LP_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.96 for sim1 r=8; 0.88 for sim2 r = 4; 0.93 for sim3 r = 6;
+#0.96 for sim1 r=8; 0.88 for sim2 r = 4; 0.94 for sim3 r = 2; 0.95 for sim4 r = 6
 
 cat("98%CI coverage:")
 y_U_CI_stack_LP_P <-
@@ -170,7 +175,7 @@ y_U_CI_stack_LP_P <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((y_U_CI_stack_LP_P[1, ] < y[-ind_mod]) &
       (y_U_CI_stack_LP_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.98 for sim1 r=8; 0.93 for sim 2 r = 4; 0.95 for sim3 r = 6;
+#0.98 for sim1 r=8; 0.93 for sim 2 r = 4; 0.98 for sim3 r = 2; 0.97 for sim4 r = 6
 
 
 # test3: geoR test with modified function #
@@ -204,7 +209,7 @@ if(geoR_test_labe){
   sum((sim.bayes.pred$predictive$quantiles.simulations$q2.5 < y[-ind_mod]) & 
         (sim.bayes.pred$predictive$quantiles.simulations$q97.5 > y[-ind_mod]))/
     length(y[-raw_data[[r]]$ind_mod])
-  # 0.56 for sim1 r = 8; 0.55 for sim2 r = 4; 0.71 for sim3 r=6
+  # 0.56 for sim1 r = 8; 0.55 for sim2 r = 4; 0.8 for sim3 r=2; 0.5 for sim4 r = 6
   
   # option: check the hist of geoR, compare with MCMC
   qqplot(sim.bayes.pred$posterior$sample$sigmasq * 
@@ -266,7 +271,7 @@ if(INLA_test_label){
       (res1$summary.fitted.values[
         inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
         "0.975quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-  # 0.52 for sim1 r = 8; 0.55 for sim2 with r = 4; 0.6 for sim3 r = 6;
+  # 0.52 for sim1 r = 8; 0.55 for sim2 with r = 4; 0.6 for sim3 r = 2; 0.43 for sim4 r = 6
   
   cat("98%CI coverage:")
   sum((res1$summary.fitted.values[
@@ -275,10 +280,11 @@ if(INLA_test_label){
       (res1$summary.fitted.values[
         inla.stack.index(stack1, "est")$data[-raw_data[[r]]$ind_mod],
         "0.99quant"] > y[-raw_data[[r]]$ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-  # 0.58 for sim1 r = 8; 0.62 for sim2 r = 4; 0.67 for sim3 r=6
+  # 0.58 for sim1 r = 8; 0.62 for sim2 r = 4; 0.78 for sim3 r=2; 0.45 for sim4 r = 6
 }
 
 # compare sigmasq #
+# Figure 6 & S13: Densities of $\sigma^2$ and $\tau^2$
 draws_ls_sigmasq <- c()
 draws_ls_sigmasq[[1]] <- MCMC_par[[r]][101:1000, "sigma.sq"]
 draws_ls_sigmasq[[2]] <- pos_sam_LSE$sigmasq_sam
@@ -366,7 +372,7 @@ pos_y_U_CI_P <-
         function(x){quantile(x, probs = c(0.025, 0.975))})
 sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) & 
       (pos_y_U_CI_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-# 0.96 for sim1 r=8;  0.89 for sim2 r = 4; 0.93 for sim3 r = 6; 
+# 0.96 for sim1 r=8;  0.89 for sim2 r = 4; 0.97 for sim3 r = 2; 0.94 for sim4 r = 6 
 
 cat("98%CI coverage:")
 pos_y_U_CI_P <- 
@@ -374,9 +380,10 @@ pos_y_U_CI_P <-
         function(x){quantile(x, probs = c(0.01, 0.99))})
 sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) & 
       (pos_y_U_CI_P[2, ] > y[-ind_mod]))/length(y[-raw_data[[r]]$ind_mod])
-#0.99 for sim1 r=8; 0.94 for sim 2 r = 4; 0.96 for sim3 r=6
+#0.99 for sim1 r=8; 0.94 for sim 2 r = 4; 0.99 for sim3 r=2; 0.97 for sim4 r = 6
 
 
+# Figure S14: Densities of $\beta_1$ and $\beta_2$$
 # compare beta1 #
 draws_ls_b1 <- c()
 draws_ls_b1[[1]] <- r.1$p.beta.recover.samples[101:1000, 1]
@@ -462,6 +469,8 @@ if(geoR_test_label){
 
 
 # check y #
+# Figure 7&S17: Predictive densities of the outcome at 50th & 90th points$
+
 pick_indi <- c(50, 90)
 draws_ls1 <- c()
 draws_ls1[[1]] <- pos_wy$y.ho.sample[pick_indi[1], 101:1000]
@@ -667,6 +676,8 @@ calculate_means_and_cis <- function(pos_sam) {
 }
 
 # check y prediction # 
+#' Figure 4: Scatterplots for predicted versus actual outcomes at 100 unobserved 
+#' locations with 95% credible intervals
 lp_data <- calculate_means_and_cis(pos_sam_LP$pred_y_U_stack_sam)
 lp_data$x <- y[-ind_mod]
 cover_lp <- round(sum(lp_data$lower<lp_data$x & lp_data$upper>lp_data$x) / 
@@ -904,6 +915,414 @@ pts_w_U_mcmc_compar
 ggsave(paste0("./sim/pics/w_U_95CI_MCMC_vs_stacking_sim", sim_ind, "_r", r, ".png"),
        plot = pts_w_U_mcmc_compar,
        width = 5.5, height = 3, units = "in", dpi = 600)
+
+
+
+## plot the interpolated map of the latent process ##
+## check the plots of latent process ##
+h <- 12
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords, raw_data[[r]]$w), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LSE"]), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "LP"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "M0"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords, expect_w[[r]][, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+                surf.M0[["z"]], surf.MCMC[["z"]]))
+
+
+## plot the interpolated maps of latent process on all locations ##
+# Figure S4 S6 S8
+png(paste0("./sim/pics/w_all_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
+# setEPS()
+# postscript("./pic/map-w-true.eps")
+par(mfrow = c(2, 3))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of means") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of predictive densities") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
+
+## generate the pictures one by one ##
+width <- 300
+height <- 300
+pointsize <- 6
+png(paste0("./sim/pics/w_raw_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+par(mfrow = c(1, 1))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "")
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim, 
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/w_LSE_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/w_LP_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/w_M0_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/w_MCMC_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+
+# ## plot the interpolated maps of latent process on unobserved locations ##
+# surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+#                            raw_data[[r]]$w[-raw_data[[r]]$ind_mod]), no.X = 300, 
+#                      no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+# surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+#                            expect_w[[r]][-raw_data[[r]]$ind_mod, "LSE"]), 
+#                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+# surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ],
+#                           expect_w[[r]][-raw_data[[r]]$ind_mod, "LP"]), 
+#                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+# surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+#                           expect_w[[r]][-raw_data[[r]]$ind_mod, "M0"]), 
+#                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+# surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+#                             expect_w[[r]][-raw_data[[r]]$ind_mod, "MCMC"]), 
+#                       no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+# 
+# surf.brks <- classIntervals(surf.raw$z, 500, 'pretty')$brks
+# col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+# xlim <- c(0, 1.13)
+# zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]], 
+#                 surf.M0[["z"]], surf.MCMC[["z"]]))
+# 
+# png(paste0("./sim/pics/w_pred_sim", sim_ind, ".png"), 
+#     width = 600, height = 400, units = "px", pointsize = 16)
+# par(mfrow = c(2, 3))
+# i <- as.image.SpatialGridDataFrame(surf.raw)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+#      xlab="x", main = "raw")
+# axis(2, las=1)
+# axis(1)
+# image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# # dev.off()
+# 
+# i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+#      xlab="x", main = "stacking of means") 
+# axis(2, las=1)
+# axis(1)
+# image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# 
+# i2 <- as.image.SpatialGridDataFrame(surf.LP)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+#      xlab="x", main = "stacking of predictive densities") 
+# axis(2, las=1)
+# axis(1)
+# image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# 
+# i3 <- as.image.SpatialGridDataFrame(surf.M0)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+#      xlab="x", main = "M0") 
+# axis(2, las=1)
+# axis(1)
+# image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# 
+# i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+#      xlab="x", main = "MCMC") 
+# axis(2, las=1)
+# axis(1)
+# image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+# 
+# 
+# ## generate the pictures one by one ##
+# png(paste0("./sim/pics/w_pred_raw_sim", sim_ind, ".png"), 
+#     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+# par(mfrow = c(1, 1))
+# i <- as.image.SpatialGridDataFrame(surf.raw)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+#      xlab="", main = "")
+# axis(2, las=1, cex.axis=2)
+# axis(1, cex.axis=2)
+# image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim, 
+#            axis.args=list(cex.axis=2))
+# dev.off()
+# 
+# png(paste0("./sim/pics/w_pred_LSE_sim", sim_ind, ".png"), 
+#     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+# i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+#      xlab="", main = "") 
+# axis(2, las=1, cex.axis=2)
+# axis(1, cex.axis=2)
+# image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+#            axis.args=list(cex.axis=2))
+# dev.off()
+# 
+# png(paste0("./sim/pics/w_pred_LP_sim", sim_ind, ".png"), 
+#     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+# i2 <- as.image.SpatialGridDataFrame(surf.LP)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+#      xlab="", main = "") 
+# axis(2, las=1, cex.axis=2)
+# axis(1, cex.axis=2)
+# image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+#            axis.args=list(cex.axis=2))
+# dev.off()
+# 
+# png(paste0("./sim/pics/w_pred_M0_sim", sim_ind, ".png"), 
+#     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+# i3 <- as.image.SpatialGridDataFrame(surf.M0)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+#      xlab="", main = "") 
+# axis(2, las=1, cex.axis=2)
+# axis(1, cex.axis=2)
+# image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+#            axis.args=list(cex.axis=2))
+# dev.off()
+# 
+# png(paste0("./sim/pics/w_pred_MCMC_sim", sim_ind, ".png"), 
+#     width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+# i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+# plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+#      xlab="", main = "") 
+# axis(2, las=1, cex.axis=2)
+# axis(1, cex.axis=2)
+# image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+#            axis.args=list(cex.axis=2))
+# dev.off()
+
+
+############################### testing ########################################
+## plot the interpolated maps of the w +x beta on unobserved locations ##
+# Figure S3 S5 S7
+surf.rawy <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                            raw_data[[r]]$y[-raw_data[[r]]$ind_mod]), no.X = 300, 
+                      no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.raw <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           raw_data[[r]]$w[-raw_data[[r]]$ind_mod] + 
+                             raw_data[[r]]$X[-raw_data[[r]]$ind_mod, ] %*% 
+                             raw_data[[r]]$beta), no.X = 300, 
+                     no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LSE <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                           expect_y[[r]][, "LSE"]), 
+                     no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.LP <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ],
+                          expect_y[[r]][, "LP"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.M0 <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                          expect_y[[r]][, "M0"]), 
+                    no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+surf.MCMC <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
+                            expect_y[[r]][, "MCMC"]), 
+                      no.X=300, no.Y=300, exten = TRUE, sp = TRUE, h = h)$xyz.est
+
+zlim <- range(c(surf.rawy[["z"]], surf.raw[["z"]], surf.LSE[["z"]], 
+                surf.LP[["z"]], surf.M0[["z"]], surf.MCMC[["z"]]))
+surf.brks <- 
+  classIntervals(c(surf.rawy[["z"]], surf.raw[["z"]], surf.LSE[["z"]], 
+                   surf.LP[["z"]], surf.M0[["z"]], surf.MCMC[["z"]]), 500,
+                 'pretty')$brks
+col.pal <- colorRampPalette(brewer.pal(11,'RdBu')[11:1])
+xlim <- c(0, 1.13)
+
+png(paste0("./sim/pics/w_xb_pred_sim", sim_ind, ".png"), 
+    width = 600, height = 400, units = "px", pointsize = 16)
+par(mfrow = c(2, 3))
+
+i0 <- as.image.SpatialGridDataFrame(surf.rawy)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw y")
+axis(2, las=1)
+axis(1)
+image.plot(i0, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "raw w+xb")
+axis(2, las=1)
+axis(1)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+# dev.off()
+
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of means") 
+axis(2, las=1)
+axis(1)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "stacking of predictive densities") 
+axis(2, las=1)
+axis(1)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "M0") 
+axis(2, las=1)
+axis(1)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="y", 
+     xlab="x", main = "MCMC") 
+axis(2, las=1)
+axis(1)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim)
+dev.off()
+
+
+## generate the pictures one by one ##
+width <- 300
+height <- 300
+pointsize <- 6
+png(paste0("./sim/pics/y_held_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+par(mfrow = c(1, 1))
+i0 <- as.image.SpatialGridDataFrame(surf.rawy)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "")
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i0, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim, 
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/y_held_denoise_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+par(mfrow = c(1, 1))
+i <- as.image.SpatialGridDataFrame(surf.raw)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "")
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim, 
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/y_pred_LSE_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i1 <- as.image.SpatialGridDataFrame(surf.LSE)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i1, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/y_pred_LP_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i2 <- as.image.SpatialGridDataFrame(surf.LP)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i2, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/y_pred_M0_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i3 <- as.image.SpatialGridDataFrame(surf.M0)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i3, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+png(paste0("./sim/pics/y_pred_MCMC_sim", sim_ind, ".png"), 
+    width = width, height = height, units = "px", pointsize = pointsize)# res = 600)
+i4 <- as.image.SpatialGridDataFrame(surf.MCMC)
+plot(raw_data[[r]]$coords, typ="n", cex=0.5, xlim=xlim, axes=FALSE, ylab="", 
+     xlab="", main = "") 
+axis(2, las=1, cex.axis=2)
+axis(1, cex.axis=2)
+image.plot(i4, add=TRUE, col=rev(col.pal(length(surf.brks)-1)), zlim=zlim,
+           axis.args=list(cex.axis=2))
+dev.off()
+
+
+
 
 
 
