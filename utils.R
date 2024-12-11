@@ -1207,7 +1207,7 @@ recover_MCMC <- function(theta.recover, beta.recover, y.mod, X.mod, coords.mod,
 }
 
 pick_deltasq <- function(E_sigmasq, E_tausq, b = 2, 
-                         p_ls = c(0.1, 0.25, 0.5, 0.75, 0.9)){
+                         p_ls = c(0.05, 0.35, 0.65, 0.95)){
   
   #Use expectation of sigmasq and tausq to select alpha and beta
   alpha = b / E_sigmasq +1
