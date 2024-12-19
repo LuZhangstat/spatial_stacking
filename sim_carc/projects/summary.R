@@ -81,21 +81,8 @@ for(i in (1:N_sim)){
   }
 }
 
-# SPE_stack_LP = SPE_stack_LP - SPE_M0
-# SPE_stack_LSE = SPE_stack_LSE - SPE_M0
-# SPE_MCMC = SPE_MCMC - SPE_M0
-# SPE_M0 = SPE_M0 - SPE_M0
-# ELPD_stack_LSE = ELPD_stack_LSE - ELPD_M0
-# ELPD_stack_LP = ELPD_stack_LP - ELPD_M0
-# ELPD_MCMC = ELPD_MCMC - ELPD_M0
-# ELPD_M0 = ELPD_M0 - ELPD_M0
-# SPE_w_stack_LP = SPE_w_stack_LP - SPE_w_M0
-# SPE_w_stack_LSE = SPE_w_stack_LSE - SPE_w_M0
-# SPE_w_MCMC = SPE_w_MCMC - SPE_w_M0
-# SPE_w_M0 = SPE_w_M0 - SPE_w_M0
-####
 
-# Figure 3 & S3: Distributions of the diagnostic metrics for prediction performance 
+# Figure 1 & S3: Distributions of the diagnostic metrics for prediction performance 
 type = c("M0", "stacking of means", "stacking of predictive densities", 
          "MCMC")
 
@@ -134,7 +121,7 @@ ggsave(paste0("./sim_carc/pics/CVexperiment_sim", sim_ind, ".png"),
        width = 6.5, height = 4.5, units = "in", dpi = 600)
 
 
-# Figure S2: Distributions of the counts of nonzero weights 
+# Figure 2: Distributions of the counts of nonzero weights 
 
 # On average, only 3.5 out of 64 models have no-zero weights
 weights_nonzero_LSE = (weights_M_LSE_all > 0.001)
@@ -171,7 +158,7 @@ ggsave(paste0("./sim_carc/pics/nonzero_check_sim", sim_ind, ".png"),
 
 ## check the inference of hyper-parameters ##
 # check phi: #
-# Figure S9: Distributions of the estimated $\phi$#
+# Figure S12: Distributions of the estimated $\phi$#
 expect_w_phi_LSE <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
 expect_w_phi_LP <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
 
@@ -212,7 +199,7 @@ ggsave(paste0("./sim_carc/pics/est_phi_sim", sim_ind, ".png"),
        width = 6.5, height = 3, units = "in", dpi = 600)
 
 # check nu #
-# Figure S10: Distributions of the estimated $\nu$#
+# Figure S13: Distributions of the estimated $\nu$#
 
 expect_w_nu_LSE <- matrix(0, nrow = length(nu_grid), ncol = N_sim * N_list)
 expect_w_nu_LP <- matrix(0, nrow = length(nu_grid), ncol = N_sim * N_list)
@@ -255,7 +242,7 @@ ggsave(paste0("./sim_carc/pics/est_nu_sim", sim_ind, ".png"),
        width = 6.5, height = 3, units = "in", dpi = 600)
 
 # check deltasq #
-# Figure S11: Distributions of the estimated $\delta^2$#
+# Figure S14: Distributions of the estimated $\delta^2$#
 expect_w_deltasq_LSE <- matrix(0, nrow = length(deltasq_grid), ncol = N_sim * N_list)
 expect_w_deltasq_LP <- matrix(0, nrow = length(deltasq_grid), ncol = N_sim * N_list)
 

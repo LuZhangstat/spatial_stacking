@@ -6,7 +6,7 @@ library(ggplot2)
 library("gridExtra")
 library("coda")
 
-#' Figure  S12: Distributions of the diagnostic metrics for prediction performance 
+#' Figure  S15: Distributions of the diagnostic metrics for prediction performance 
 
 # colorblind-friendly palettes
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
