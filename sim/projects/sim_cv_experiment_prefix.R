@@ -676,7 +676,7 @@ calculate_means_and_cis <- function(pos_sam) {
 }
 
 # check y prediction # 
-#' Figure 3 & S20: Scatterplots for predicted versus actual outcomes at 100 unobserved 
+#' Figure 3 & S16: Scatterplots for predicted versus actual outcomes at 100 unobserved 
 #' locations with 95% credible intervals
 lp_data <- calculate_means_and_cis(pos_sam_LP$pred_y_U_stack_sam)
 lp_data$x <- y[-ind_mod]
@@ -723,6 +723,8 @@ ggsave(paste0("./sim/pics/y_U_95CIsim", sim_ind, "_r", r, ".png"),
        width = 8, height = 3, units = "in", dpi = 600)
 
 # the geoR test for 95%CI
+#' Figure S20: Scatterplots for predicted versus actual outcomes at 100 unobserved 
+#' locations with 95% credible intervals
 if(geoR_test_label){
   geoR_data <- calculate_means_and_cis(sim.bayes.pred$predictive$simulations)
   geoR_data$x <-  y[-ind_mod]
