@@ -427,83 +427,6 @@ cbind(CV_fit_LP$grid_all[CV_fit_LP$wts>0.00001, ],
       CV_fit_LP$wts[CV_fit_LP$wts>0.00001])
 
 
-## For LSE ##
-cat("LSE R2:")
-1 - sum((rowMeans(pos_sam_LSE$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
-  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
-#0.8455106
-
-cor(combined_data_test$AOD, rowMeans(exp(pos_sam_LSE$pred_y_U_stack_sam)))
-# 0.9269146
-
-# 95% CI. coverage
-y_U_CI_stack_LSE <- 
-  apply(pos_sam_LSE$pred_y_U_stack_sam, 1, 
-        function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
-cat("LSE 95% CI coverage: ")
-sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
-      (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
-# 0.7590449
-
-# 99% CI. coverage
-y_U_CI_stack_LSE <- 
-  apply(pos_sam_LSE$pred_y_U_stack_sam, 1, 
-        function(x){exp(quantile(x, probs = c(0.005, 0.9995)))})
-cat("LSE 99% CI coverage: ")
-sum((y_U_CI_stack_LSE[1, ] < combined_data_test$AOD) & 
-      (y_U_CI_stack_LSE[2, ] > combined_data_test$AOD))/4146
-# 0.8699952
-
-# root-mean-squared error (RMSE)
-sqrt(mean((combined_data_test$AOD - 
-             rowMeans(exp(pos_sam_LSE$pred_y_U_stack_sam)))^2))
-#0.0100499
-
-# mean absolute error (MAE)
-mean(abs(combined_data_test$AOD - 
-           rowMeans(exp(pos_sam_LSE$pred_y_U_stack_sam))))
-# 0.007049124
-
-## For LP ##
-cat("LP R2:")
-1 - sum((rowMeans(pos_sam_LP$pred_y_U_stack_sam) - log(combined_data_test$AOD))^2)/ 
-  sum((log(combined_data_test$AOD) - mean(log(combined_data_test$AOD)))^2)
-#0.8419137
-
-# correlaton
-cor(combined_data_test$AOD, rowMeans(exp(pos_sam_LP$pred_y_U_stack_sam)))
-#0.9261988
-
-# 95% CI. coverage
-y_U_CI_stack_LP <- 
-  apply(pos_sam_LP$pred_y_U_stack_sam, 1, 
-        function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
-cat("LP 95% CI coverage: ")
-sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
-      (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
-# 0.8212735
-
-# 95% CI. coverage
-y_U_CI_stack_LP <- 
-  apply(pos_sam_LP$pred_y_U_stack_sam, 1, 
-        function(x){exp(quantile(x, probs = c(0.005, 0.9995)))})
-cat("LP 99% CI coverage: ")
-sum((y_U_CI_stack_LP[1, ] < combined_data_test$AOD) & 
-      (y_U_CI_stack_LP[2, ] > combined_data_test$AOD))/4146
-# 0.9394597
-
-# root-mean-squared error (RMSE)
-sqrt(mean((combined_data_test$AOD - 
-             rowMeans(exp(pos_sam_LP$pred_y_U_stack_sam)))^2))
-#0.0101573
-
-
-# mean absolute error (MAE)
-mean(abs(combined_data_test$AOD - 
-           rowMeans(exp(pos_sam_LP$pred_y_U_stack_sam))))
-# 0.007143969
-
-
 # fit Bayesian linear regression model #
 library(brms)
 library(bayesplot)
@@ -517,37 +440,6 @@ summary(fit_lm)
 predicted_samples_lm <- 
   posterior_predict(fit_lm, newdata = combined_data_test)
 
-# correlaton
-cor(combined_data_test$AOD, colMeans(exp(predicted_samples_lm)))
-#0.6932424
-
-# 95% CI. coverage
-y_U_CI_lm <- 
-  apply(predicted_samples_lm, 2, 
-        function(x){exp(quantile(x, probs = c(0.025, 0.975)))})
-cat("BLM 95% CI coverage: ")
-sum((y_U_CI_lm[1, ] < combined_data_test$AOD) & 
-      (y_U_CI_lm[2, ] > combined_data_test$AOD))/4146
-# 0.9493488
-
-# 95% CI. coverage
-y_U_CI_lm <- 
-  apply(predicted_samples_lm, 2, 
-        function(x){exp(quantile(x, probs = c(0.005, 0.9995)))})
-cat("LP 99% CI coverage: ")
-sum((y_U_CI_lm[1, ] < combined_data_test$AOD) & 
-      (y_U_CI_lm[2, ] > combined_data_test$AOD))/4146
-# 0.9937289
-
-# root-mean-squared error (RMSE)
-sqrt(mean((combined_data_test$AOD - 
-             colMeans(exp(predicted_samples_lm)))^2))
-#0.01941467
-
-# mean absolute error (MAE)
-mean(abs(combined_data_test$AOD - 
-           exp(colMeans(predicted_samples_lm))))
-# 0.01467183
 
 #################################
 ## compare the predicted plots ##
@@ -754,4 +646,80 @@ pts_y
 ggsave(paste0("./RDA/pics/y_U_95CI.png"),
        plot = pts_y,
        width = 8, height = 3, units = "in", dpi = 600)
+
+#----- Table 1: stacking and BLM -----#
+# Compute metrics for LSE
+calculate_correlation <- function(true_values, predicted_values) {
+  cor(true_values, rowMeans(exp(predicted_values)))
+}
+
+calculate_ci_coverage <- function(predicted_values, true_values, ci_level) {
+  ci_bounds <- apply(predicted_values, 1, function(x) exp(quantile(x, probs = c((1 - ci_level) / 2, 1 - (1 - ci_level) / 2))))
+  sum((ci_bounds[1, ] < true_values) & (ci_bounds[2, ] > true_values)) / length(true_values)
+}
+
+calculate_rmse <- function(true_values, predicted_values) {
+  sqrt(mean((true_values - rowMeans(exp(predicted_values)))^2))
+}
+
+calculate_mae <- function(true_values, predicted_values) {
+  mean(abs(true_values - rowMeans(exp(predicted_values))))
+}
+
+# Define the metrics for each model
+Correlation_LSE <- calculate_correlation(combined_data_test$AOD, 
+                                         pos_sam_LSE$pred_y_U_stack_sam)
+Correlation_LP <- calculate_correlation(combined_data_test$AOD, 
+                                        pos_sam_LP$pred_y_U_stack_sam)
+Correlation_BLM <- cor(combined_data_test$AOD, colMeans(exp(predicted_samples_lm)))
+
+CI_95_Coverage_LSE <- calculate_ci_coverage(pos_sam_LSE$pred_y_U_stack_sam, 
+                                            combined_data_test$AOD, 0.95)
+CI_95_Coverage_LP <- calculate_ci_coverage(pos_sam_LP$pred_y_U_stack_sam, 
+                                           combined_data_test$AOD, 0.95)
+CI_95_Coverage_BLM <- calculate_ci_coverage(t(predicted_samples_lm), 
+                                            combined_data_test$AOD, 0.95)
+
+CI_99_Coverage_LSE <- calculate_ci_coverage(pos_sam_LSE$pred_y_U_stack_sam, 
+                                            combined_data_test$AOD, 0.99)
+CI_99_Coverage_LP <- calculate_ci_coverage(pos_sam_LP$pred_y_U_stack_sam, 
+                                           combined_data_test$AOD, 0.99)
+CI_99_Coverage_BLM <- calculate_ci_coverage(t(predicted_samples_lm), 
+                                            combined_data_test$AOD, 0.99)
+
+RMSE_LSE <- calculate_rmse(combined_data_test$AOD, 
+                           pos_sam_LSE$pred_y_U_stack_sam)
+RMSE_LP <- calculate_rmse(combined_data_test$AOD, 
+                          pos_sam_LP$pred_y_U_stack_sam)
+RMSE_BLM <- sqrt(mean((combined_data_test$AOD - 
+                         colMeans(exp(predicted_samples_lm)))^2))
+
+MAE_LSE <- calculate_mae(combined_data_test$AOD, 
+                         pos_sam_LSE$pred_y_U_stack_sam)
+MAE_LP <- calculate_mae(combined_data_test$AOD, 
+                        pos_sam_LP$pred_y_U_stack_sam)
+MAE_BLM <- mean(abs(combined_data_test$AOD - 
+                      exp(colMeans(predicted_samples_lm))))
+
+metrics <- data.frame(
+  Model = c("LSE", "LP", "BLM"),
+  Correlation = c(Correlation_LSE, Correlation_LP, Correlation_BLM),
+  CI_95_Coverage = c(CI_95_Coverage_LSE, CI_95_Coverage_LP, CI_95_Coverage_BLM),
+  CI_99_Coverage = c(CI_99_Coverage_LSE, CI_99_Coverage_LP, CI_99_Coverage_BLM),
+  RMSE = c(RMSE_LSE, RMSE_LP, RMSE_BLM),
+  MAE = c(MAE_LSE, MAE_LP, MAE_BLM)
+)
+
+# Round all numerical columns to 3 decimal places
+metrics[, -1] <- round(metrics[, -1], 3)
+
+# Convert the data frame into a matrix
+metrics_matrix <- as.matrix(metrics[, -1])
+
+# Assign row and column names to the matrix
+rownames(metrics_matrix) <- metrics$Model
+colnames(metrics_matrix) <- c("Correlation", "CI_95_Coverage", "CI_99_Coverage", "RMSE", "MAE")
+
+# Print the matrix
+print(metrics_matrix)
 

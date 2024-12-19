@@ -69,15 +69,8 @@ m1 <- h2o.deeplearning(x, y, train, nfolds=10, seed = 1,
                        keep_cross_validation_predictions = T,
                        reproducible = TRUE)  
 p1 <- h2o.predict(m1, test)  
-#as.data.frame(p)
-pred_perf1 <- h2o.performance(m1, test)
-pred_perf1@metrics$mae # 0.01266137
-pred_perf1@metrics$RMSE # 0.01658932
-h2o.cor(p1$predict, test$AOD)
-# 0.792391
 
 ## 2. Distributed Random Forest ##
-
 g <- h2o.grid("randomForest",
               hyper_params = list(
                 ntrees = c(50, 100, 120),
@@ -92,10 +85,7 @@ m2 <- h2o.randomForest(x, y, train, nfolds = 10, model_id = "RF_defaults",
                        keep_cross_validation_predictions = T,
                        ntrees = 120, max_depth = 60, min_rows = 1)
 p2 <- h2o.predict(m2, test) 
-pred_perf2 <- h2o.performance(m2, test)
-pred_perf2@metrics$mae # 0.01153211
-pred_perf2@metrics$RMSE # 0.01526932
-h2o.cor(p2$predict, test$AOD)
+
 # 0.8208408
 
 ## 3. Gradient Boosting ##
@@ -103,11 +93,6 @@ m3 <- h2o.gbm(x, y, train, nfolds = 10, model_id = "GBM_defaults",
               fold_assignment = "Modulo", seed = 1,
               keep_cross_validation_predictions = T)
 p3 <- h2o.predict(m3, test) 
-pred_perf3 <- h2o.performance(m3, test)
-pred_perf3@metrics$mae #0.01221575
-pred_perf3@metrics$RMSE #0.01609126
-h2o.cor(p3$predict, test$AOD)
-# 0.7969876
 
 ## 4. Ensemble model ##
 library(h2oEnsemble)
@@ -133,11 +118,35 @@ ensemble <- h2o.stackedEnsemble(x, y, training_frame = train, seed = 1,
                                 base_models = c(RFd, GBMd, DLd),
                                 metalearner_algorithm = "glm") # Using GLM as metalearner for regression
 pred_ensem <- h2o.predict(ensemble, newdata = test)
-pred_perf_ensem <- h2o.performance(ensemble, test)
-pred_perf_ensem@metrics$mae #  0.01155025
-pred_perf_ensem@metrics$RMSE # 0.01539727
-h2o.cor(pred_ensem$predict, test$AOD)
 # 0.8160181
+
+##--------- Table 1 ---------##
+models <- list(
+  "Deep Learning" = list(model = m1, prediction = p1$predict),
+  "Random Forest" = list(model = m2, prediction = p2$predict),
+  "Gradient Boosting" = list(model = m3, prediction = p3$predict),
+  "Ensemble" = list(model = ensemble, prediction = pred_ensem$predict)
+)
+
+# Initialize metrics storage
+summary_metrics <- data.frame(Model = character(), MAE = numeric(), RMSE = numeric(), Correlation = numeric())
+
+# Compute metrics for each model using h2o.performance()
+for (model_name in names(models)) {
+  model_data <- models[[model_name]]
+  performance <- h2o.performance(model_data$model, test)
+  mae <- performance@metrics$mae
+  rmse <- performance@metrics$RMSE
+  correlation <- h2o.cor(model_data$prediction, test$AOD)
+  
+  summary_metrics <- rbind(summary_metrics, data.frame(Model = model_name, MAE = mae, RMSE = rmse, Correlation = correlation))
+}
+
+# Round metrics to 3 decimal places
+summary_metrics[, -1] <- round(summary_metrics[, -1], 4)
+
+# Print the summary table
+print(summary_metrics)
 
 #h2o.shutdown()
 
