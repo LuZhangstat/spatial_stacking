@@ -9,7 +9,6 @@ Roadmap
 |RDA| Data and code for the AOD analysis|
 |sim| Code for assumption checking, and example R code for simulation studies|
 |sim_carc| Code submitted to cluster for simulation studies in Section 5|
-|sim_hoffman2| Old Code submitted to cluster for simulation studies in Section 5|
 |sim_julia| Julia code for running time comparison in Section 5.3|
 |utils| R functions required in running projects |
 
