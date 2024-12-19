@@ -125,6 +125,7 @@ y_range <- range(combined_data$y, na.rm = TRUE)
 # Calculate aspect ratio (if necessary)
 aspect_ratio <- diff(x_range) / diff(y_range)
 
+# Figure 7: AOD and Predictors Visualization
 # The map of the raw AOD data in central LA ##
 aod_p <- ggplot() + 
   coord_fixed(#ratio = aspect_ratio, 
@@ -282,7 +283,7 @@ res_p
 
 
 
-## Variogram ##
+## Variogram: Figure S21 ##
 library(geoR)
 library(fields)
 ### variogram of raw data and residuals ###
@@ -551,7 +552,7 @@ mean(abs(combined_data_test$AOD -
 #################################
 ## compare the predicted plots ##
 #################################
-
+# Figure 8
 # load results from H2O models #
 H2Opred <- read.csv("./RDA/result/H2Opred.csv")
 names(H2Opred) <- c("DL", "RF", "GB", "Ensemble")
@@ -694,7 +695,7 @@ combined_plot_pre <- grid.arrange(aod_test, aod_RF,  aod_p_legend,
 
 ggsave("./RDA/pics/AOD_pred.png", combined_plot_pre, width = 8, height = 5.5)
 
-## 95% CI coverage ##
+## Figure S22: 95% CI coverage ##
 library(ggplot2)
 library(dplyr)
 calculate_means_and_cis <- function(pos_sam) {
@@ -753,3 +754,4 @@ pts_y
 ggsave(paste0("./RDA/pics/y_U_95CI.png"),
        plot = pts_y,
        width = 8, height = 3, units = "in", dpi = 600)
+
