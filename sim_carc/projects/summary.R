@@ -10,7 +10,7 @@ source("utils.R")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 4 # simulation index 1, 2, 3 or 4
+sim_ind = 2 # simulation index 1, 2, 3 or 4
 
 
 load(paste0("./sim_carc/results/sim", sim_ind, "_1.Rdata"))
@@ -95,7 +95,7 @@ for(i in (1:N_sim)){
 # SPE_w_M0 = SPE_w_M0 - SPE_w_M0
 ####
 
-# Figure 3 & S1: Distributions of the diagnostic metrics for prediction performance 
+# Figure 3 & S3: Distributions of the diagnostic metrics for prediction performance 
 type = c("M0", "stacking of means", "stacking of predictive densities", 
          "MCMC")
 
@@ -193,7 +193,7 @@ phi_dat$label <- factor(phi_dat$label, levels = 1:2,
 if((sim_ind == 1)| (sim_ind == 4)){
   leg_pos = c(0.8, 0.85)
 }else if (sim_ind == 2){
-  leg_pos = c(0.5, 0.2)
+  leg_pos = c(0.8, 0.2)
 }else if (sim_ind == 3){
   leg_pos = c(0.8, 0.88)
 }
@@ -276,10 +276,10 @@ deltasq_dat$label <- factor(deltasq_dat$label, levels = 1:2,
                        labels = c("stacking of means", 
                                   "stacking of predictive densities"))
 # adjust the position of the legend for different simulation
-if( (sim_ind == 1) | (sim_ind == 3) ){
+if( (sim_ind == 1) | (sim_ind == 2) ){
   leg_pos_deltasq = "none"
-}else if (sim_ind == 2){
-  leg_pos_deltasq = c(0.8, 0.8)
+}else if (sim_ind == 3){
+  leg_pos_deltasq = c(0.8, 0.88)
 }else if (sim_ind == 4){
   leg_pos_deltasq = c(0.8, 0.1) #c(0.8, 0.88)
 }
