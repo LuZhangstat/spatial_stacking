@@ -33,15 +33,15 @@ The files `Example_code.Rmd` (and its corresponding HTML version `Example_code.h
 
 ------------------------------------------------------------------------
 
-## Authors
+<!-- ## Authors
 
 | Name | Email |   |
 |:-----------------|:--------------------------|:--------------------------|
-| Lu Zhang | [lzhang63\@usc.edu](mailto:lzhang63@usc.edu) | Ph.D. Department of Population and Public Health Sciences, University of Southern California |
+| Lu Zhang | [lzhang63\@usc.edu](mailto:lzhang63@usc.edu) | Ph.D. Department of Population and Public Health Sciences, University of Southern California |-->
 
 ## Licensing
 
--   Code © 2024, Lu Zhang, licensed under [BSD (3-clause)](https://opensource.org/licenses/BSD-3-Clause).
+-   Code © 2024, <!--Lu Zhang,--> licensed under [BSD (3-clause)](https://opensource.org/licenses/BSD-3-Clause).
 
 ## Notes
 
