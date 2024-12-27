@@ -37,7 +37,7 @@ The files `Example_code.Rmd` (and its corresponding HTML version `Example_code.h
 
 | Name | Email |   |
 |:-----------------|:--------------------------|:--------------------------|
-| Lu Zhang | [lzhang63\@usc.edu](mailto:lzhang63@usc.edu){.email} | Ph.D. Department of Population and Public Health Sciences, University of Southern California |
+| Lu Zhang | [lzhang63\@usc.edu](mailto:lzhang63@usc.edu) | Ph.D. Department of Population and Public Health Sciences, University of Southern California |
 
 ## Licensing
 
