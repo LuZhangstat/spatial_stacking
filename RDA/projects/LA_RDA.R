@@ -283,7 +283,7 @@ res_p
 
 
 
-## Variogram: Figure S21 ##
+## Variogram: Figure S22 ##
 library(geoR)
 library(fields)
 ### variogram of raw data and residuals ###
@@ -587,7 +587,7 @@ combined_plot_pre <- grid.arrange(aod_test, aod_RF,  aod_p_legend,
 
 ggsave("./RDA/pics/AOD_pred.png", combined_plot_pre, width = 8, height = 5.5)
 
-## Figure S22: 95% CI coverage ##
+## Figure S23: 95% CI coverage ##
 library(ggplot2)
 library(dplyr)
 calculate_means_and_cis <- function(pos_sam) {

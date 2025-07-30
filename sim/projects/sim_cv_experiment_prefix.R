@@ -284,7 +284,7 @@ if(INLA_test_label){
 }
 
 # compare sigmasq #
-# Figure 5 & S17: Densities of $\sigma^2$ and $\tau^2$
+# Figure 5 & S18: Densities of $\sigma^2$ and $\tau^2$
 draws_ls_sigmasq <- c()
 draws_ls_sigmasq[[1]] <- MCMC_par[[r]][101:1000, "sigma.sq"]
 draws_ls_sigmasq[[2]] <- pos_sam_LSE$sigmasq_sam
@@ -383,7 +383,7 @@ sum((pos_y_U_CI_P[1, ] < y[-ind_mod]) &
 #0.99 for sim1 r=8; 0.94 for sim 2 r = 4; 0.99 for sim3 r=2; 0.97 for sim4 r = 6
 
 
-# Figure S18: Densities of $\beta_1$ and $\beta_2$$
+# Figure S19: Densities of $\beta_1$ and $\beta_2$$
 # compare beta1 #
 draws_ls_b1 <- c()
 draws_ls_b1[[1]] <- r.1$p.beta.recover.samples[101:1000, 1]
@@ -469,7 +469,7 @@ if(geoR_test_label){
 
 
 # check y #
-# Figure 6&S19: Predictive densities of the outcome at 50th & 90th points$
+# Figure 6&S20: Predictive densities of the outcome at 50th & 90th points$
 
 pick_indi <- c(50, 90)
 draws_ls1 <- c()
@@ -676,7 +676,7 @@ calculate_means_and_cis <- function(pos_sam) {
 }
 
 # check y prediction # 
-#' Figure 3 & S16: Scatterplots for predicted versus actual outcomes at 100 unobserved 
+#' Figure 3 & S17: Scatterplots for predicted versus actual outcomes at 100 unobserved 
 #' locations with 95% credible intervals
 lp_data <- calculate_means_and_cis(pos_sam_LP$pred_y_U_stack_sam)
 lp_data$x <- y[-ind_mod]
@@ -723,7 +723,7 @@ ggsave(paste0("./sim/pics/y_U_95CIsim", sim_ind, "_r", r, ".png"),
        width = 8, height = 3, units = "in", dpi = 600)
 
 # the geoR test for 95%CI
-#' Figure S20: Scatterplots for predicted versus actual outcomes at 100 unobserved 
+#' Figure S21: Scatterplots for predicted versus actual outcomes at 100 unobserved 
 #' locations with 95% credible intervals
 if(geoR_test_label){
   geoR_data <- calculate_means_and_cis(sim.bayes.pred$predictive$simulations)
@@ -942,7 +942,7 @@ zlim <- range(c(surf.raw[["z"]], surf.LSE[["z"]], surf.LP[["z"]],
 
 
 ## plot the interpolated maps of latent process on all locations ##
-# Figure S5 S7 S9 S11
+# Figure S6 S8 S10 S12
 png(paste0("./sim/pics/w_all_sim", sim_ind, ".png"), 
     width = 600, height = 400, units = "px", pointsize = 16)
 # setEPS()
@@ -1170,7 +1170,7 @@ dev.off()
 
 ############################### testing ########################################
 ## plot the interpolated maps of the w +x beta on unobserved locations ##
-# Figure S4 S6 S8 S10
+# Figure S5 S7 S9 S11
 surf.rawy <- mba.surf(cbind(raw_data[[r]]$coords[-raw_data[[r]]$ind_mod, ], 
                             raw_data[[r]]$y[-raw_data[[r]]$ind_mod]), no.X = 300, 
                       no.Y = 300, exten = TRUE, sp = TRUE, h = h)$xyz.est

@@ -10,7 +10,7 @@ source("utils.R")
 cbPalette <- c("#999999", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-sim_ind = 2 # simulation index 1, 2, 3 or 4
+sim_ind = 4 # simulation index 1, 2, 3 or 4
 
 
 load(paste0("./sim_carc/results/sim", sim_ind, "_1.Rdata"))
@@ -155,10 +155,82 @@ ggsave(paste0("./sim_carc/pics/nonzero_check_sim", sim_ind, ".png"),
        plot = p_nonzero_counts, 
        width = 6.5, height = 3, units = "in", dpi = 600)
 
+# Historgram of the stacking weights
+# Reshape the weight arrays to create a data frame for plotting
+# For each sample size and simulation, we have 64 weights
+
+# Create data frame for LSE weights
+weights_LSE_long <- data.frame(
+  weight_value = c(weights_M_LSE_all),  # Flatten the 64*8*60 array
+  N_sample = rep(rep(paste(samplesize_ls), each = 64), N_sim),  # 64 weights per sample size per sim
+  sim_rep = rep(1:N_sim, each = 64 * N_list),  # Simulation replicate identifier
+  method = "stacking of means"
+)
+
+# Create data frame for LP weights  
+weights_LP_long <- data.frame(
+  weight_value = c(weights_M_LP_all),  # Flatten the 64*8*60 array
+  N_sample = rep(rep(paste(samplesize_ls), each = 64), N_sim),  # 64 weights per sample size per sim
+  sim_rep = rep(1:N_sim, each = 64 * N_list),  # Simulation replicate identifier
+  method = "stacking of predictive densities"
+)
+
+# Combine the data frames
+weights_all_long <- rbind(weights_LSE_long, weights_LP_long)
+
+# Create violin plots for weight distributions (including zeros with binned small weights)
+# Create binned weights for the full dataset: weights < 0.001 are set to 0.0005
+weights_all_binned <- weights_all_long
+weights_all_binned$weight_value[weights_all_binned$weight_value < 0.001] <- 0.0005
+
+p_weights_dist <- 
+  ggplot(weights_all_binned, aes(x = N_sample, y = weight_value, color = method)) +
+  geom_violin(alpha = 0.7) + 
+  theme_bw() + 
+  theme(legend.position = "top", legend.title = element_blank(),
+        legend.background = element_blank()) +
+  xlab("sample size") + 
+  ylab("Stacking weight value (binned small weights)") +
+  scale_colour_manual(values=c("#E69F00", "#56B4E9")) +
+  scale_y_log10(limits = c(0.0005, 1), 
+                breaks = c(0.0005, 0.001, 0.01, 0.1, 1),
+                labels = c("<0.001", "0.001", "0.01", "0.1", "1"))
+
+p_weights_dist
+
+ggsave(paste0("./sim_carc/pics/weights_distribution_sim", sim_ind, ".png"), 
+       plot = p_weights_dist, 
+       width = 8, height = 5, units = "in", dpi = 600)
+
+# Figure S4: Distributions of stacking weights
+# Create violin plots for weight distributions (>0.001 only)
+weights_nonzero_LSE <- weights_LSE_long[weights_LSE_long$weight_value > 0.001, ]
+weights_nonzero_LP <- weights_LP_long[weights_LP_long$weight_value > 0.001, ]
+weights_nonzero_all <- rbind(weights_nonzero_LSE, weights_nonzero_LP)
+
+p_weights_dist_nonzero <- 
+  ggplot(weights_nonzero_all, aes(x = N_sample, y = weight_value, color = method)) +
+  geom_violin(draw_quantiles = c(0.5), alpha = 0.7) + 
+  theme_bw() + 
+  theme(legend.position = "top", legend.title = element_blank(),
+        legend.background = element_blank()) +
+  xlab("sample size") + 
+  ylab("Stacking weight value (>0.001 only)") +
+  scale_colour_manual(values=c("#E69F00", "#56B4E9")) +
+  scale_y_continuous(limits = c(0.001, 1), 
+                    breaks = c(0.001, 0.25, 0.5, 0.75, 1),
+                    labels = c("0.001", "0.25", "0.5", "0.75", "1"))
+
+p_weights_dist_nonzero
+
+ggsave(paste0("./sim_carc/pics/weights_distribution_nonzero_sim", sim_ind, ".png"), 
+       plot = p_weights_dist_nonzero, 
+       width = 8, height = 5, units = "in", dpi = 600)
+
 
 ## check the inference of hyper-parameters ##
 # check phi: #
-# Figure S12: Distributions of the estimated $\phi$#
+# Figure S13: Distributions of the estimated $\phi$#
 expect_w_phi_LSE <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
 expect_w_phi_LP <- matrix(0, nrow = length(phi_grid), ncol = N_sim * N_list)
 
@@ -199,7 +271,7 @@ ggsave(paste0("./sim_carc/pics/est_phi_sim", sim_ind, ".png"),
        width = 6.5, height = 3, units = "in", dpi = 600)
 
 # check nu #
-# Figure S13: Distributions of the estimated $\nu$#
+# Figure S14: Distributions of the estimated $\nu$#
 
 expect_w_nu_LSE <- matrix(0, nrow = length(nu_grid), ncol = N_sim * N_list)
 expect_w_nu_LP <- matrix(0, nrow = length(nu_grid), ncol = N_sim * N_list)
@@ -242,7 +314,7 @@ ggsave(paste0("./sim_carc/pics/est_nu_sim", sim_ind, ".png"),
        width = 6.5, height = 3, units = "in", dpi = 600)
 
 # check deltasq #
-# Figure S14: Distributions of the estimated $\delta^2$#
+# Figure S15: Distributions of the estimated $\delta^2$#
 expect_w_deltasq_LSE <- matrix(0, nrow = length(deltasq_grid), ncol = N_sim * N_list)
 expect_w_deltasq_LP <- matrix(0, nrow = length(deltasq_grid), ncol = N_sim * N_list)
 

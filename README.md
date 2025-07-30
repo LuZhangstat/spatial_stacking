@@ -22,13 +22,13 @@ The files `Example_code.Rmd` (and its corresponding HTML version `Example_code.h
 
 | **Folder** | **File** | **Figures** | **Tables** |
 |--------------|--------------------|------------------------|--------------|
-| **sim_carc** | `projects/summary.R` | 1, 2, S3, S12–S14 | \- |
-|  | `projects/summary2.R` | S15 | \- |
+| **sim_carc** | `projects/summary.R` | 1, 2, S3-4, S13–S15 | \- |
+|  | `projects/summary2.R` | S16 | \- |
 | **sim** | `projects/check_trH22.R` | S2 | \- |
 |  | `projects/check_z_var.R` | S1 | \- |
-|  | `projects/sim_cv_experiment_prefix` | 3, 5, 6, S4–S11, S16–S20 | \- |
+|  | `projects/sim_cv_experiment_prefix` | 3, 5, 6, S5–S12, S17–S21 | \- |
 | **sim_julia** | `projects/time_compar.ipynb` | 4 | \- |
-| **RDA** | `projects/LA_RDA.R` | 7, 8 | 1 |
+| **RDA** | `projects/LA_RDA.R` | 7, 8, S22-23 | 1 |
 |  | `projects/H2Otest.R` | \- | 1 |
 
 ------------------------------------------------------------------------
