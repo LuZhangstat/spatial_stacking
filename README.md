@@ -8,8 +8,8 @@ Code for paper "Bayesian Geostatistics Using Predictive Stacking".
 |:--------------------------|:--------------------------------------------|
 | RDA | Data and code for the AOD analysis |
 | sim | Code for assumption checking, and example R code for simulation studies |
-| sim_carc | Code submitted to cluster for simulation studies in Section 5 |
-| sim_julia | Julia code for running time comparison in Section 5.3 |
+| sim_carc | Code submitted to cluster for simulation studies in Section 4 |
+| sim_julia | Julia code for running time comparison in Section 4.3 |
 | utils.R | R functions required in running projects |
 
 ## Instructions
@@ -35,7 +35,7 @@ The files `Example_code.Rmd` (and its corresponding HTML version `Example_code.h
 
 ## Licensing
 
--   Code © 2024, licensed under [BSD (3-clause)](https://opensource.org/licenses/BSD-3-Clause).
+-   Code © 2025, licensed under [BSD (3-clause)](https://opensource.org/licenses/BSD-3-Clause).
 
 ## Notes
 
