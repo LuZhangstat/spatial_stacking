@@ -1,5 +1,5 @@
 rm(list = ls())
-setwd("~/Stacking")
+setwd("./Stacking")
 library(ggplot2)
 library(MASS)
 library(spBayes)
